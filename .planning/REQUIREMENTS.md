@@ -33,4 +33,9 @@
 - Simple sequential queueing — We strictly use weighted prioritization to manage urgency.
 
 ## Traceability
-*(To be populated by Roadmap)*
+- **SIM-01**: Phase 3
+- **SIM-02, SIM-03**: Phase 1
+- **ALLOC-01, ALLOC-02, ALLOC-04**: Phase 2
+- **ALLOC-03**: Phase 3
+- **RT-01, RT-02**: Phase 3
+- **UI-01, UI-02, UI-03, UI-04**: Phase 4
