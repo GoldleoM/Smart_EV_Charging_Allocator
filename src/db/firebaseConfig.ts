@@ -9,7 +9,7 @@ const firebaseConfig = {
   messagingSenderId: "265867944795",
   appId: "1:265867944795:web:8b7dc0b0c6fddb6431b07e",
   measurementId: "G-K8NJ71LNDK",
-  databaseURL: "https://ev-charging-7354b-default-rtdb.firebaseio.com"
+  databaseURL: "https://ev-charging-7354b-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 const app = initializeApp(firebaseConfig);
