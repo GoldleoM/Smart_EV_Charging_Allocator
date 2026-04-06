@@ -4,12 +4,12 @@
 See: .planning/PROJECT.md
 
 ## Current Status
-**Active Phase**: Phase 1 planned. Ready to execute.
-**Current Plan**: .planning/phases/01-backend-foundation-data-models/01-PLAN.md
-**Progress**: 0 phases out of 4 completed.
+**Active Phase**: Phase 2 planned. Ready to execute.
+**Current Plan**: .planning/phases/02-core-co-allocation-engine/02-PLAN.md
+**Progress**: 1 phases out of 4 completed.
 
 ## Open Issues
-- Need to procure Firebase service account credentials before running the simulator.
+- Need to procure Firebase service account credentials/test enabling the Realtime database before testing.
 
 ## Next Actions
-- Execute Phase 1 (Backend Foundation & Data Models)
+- Execute Phase 2 (Core Co-allocation Engine)
