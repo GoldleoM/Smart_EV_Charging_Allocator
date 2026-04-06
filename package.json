@@ -1,0 +1,25 @@
+{
+  "name": "ev",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoldleoM/Smart_EV_Charging_Allocator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/GoldleoM/Smart_EV_Charging_Allocator/issues"
+  },
+  "homepage": "https://github.com/GoldleoM/Smart_EV_Charging_Allocator#readme",
+  "dependencies": {
+    "dotenv": "^17.4.1",
+    "firebase-admin": "^13.7.0"
+  }
+}
