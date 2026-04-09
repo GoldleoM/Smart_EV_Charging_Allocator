@@ -35,20 +35,58 @@ async function runSimulator(): Promise<void> {
 
       // 2. Compute physics deltas
       for (const [vehicleId, vehicle] of Object.entries(vehicles)) {
-        if (vehicle.status === "driving") {
-          // Mutate memory object for the allocator context
-          vehicle.batteryLevel = Math.max(0, parseFloat((vehicle.batteryLevel - 0.5).toFixed(2)));
-          vehicle.etaMinutes = Math.max(0, parseFloat((vehicle.etaMinutes - 0.2).toFixed(2)));
+        // --- 1. Driving Physics ---
+        if (vehicle.status === "driving" || vehicle.status === "RESERVED") {
+          const nextBattery = parseFloat((vehicle.batteryLevel - 0.1).toFixed(2));
           
-          if (vehicle.etaMinutes === 0) {
-            vehicle.status = "waiting"; 
+          if (nextBattery <= 0) {
+            vehicle.batteryLevel = 0;
+            vehicle.status = "stranded";
+          } else {
+            vehicle.batteryLevel = nextBattery;
+            vehicle.etaMinutes = Math.max(0, parseFloat((vehicle.etaMinutes - 0.2).toFixed(2)));
+            
+            if (vehicle.etaMinutes === 0) {
+              vehicle.status = "waiting"; 
+            }
           }
-
-          // Add to base updates
-          baseUpdates[`/vehicles/${vehicleId}/batteryLevel`] = vehicle.batteryLevel;
-          baseUpdates[`/vehicles/${vehicleId}/etaMinutes`]   = vehicle.etaMinutes;
-          baseUpdates[`/vehicles/${vehicleId}/status`]       = vehicle.status;
         }
+        // --- 2. Arrival Logic ---
+        else if (vehicle.status === "waiting") {
+          // Immediately dock if they arrived (they hold a reservation)
+          vehicle.status = "OCCUPIED";
+        }
+        // --- 3. Charging Physics & Departure ---
+        else if (vehicle.status === "OCCUPIED") {
+          vehicle.batteryLevel = Math.min(100, parseFloat((vehicle.batteryLevel + 2.0).toFixed(2)));
+          
+          if (vehicle.batteryLevel === 100) {
+            // Free up station resources
+            const station = stations[vehicle.targetStationId];
+            if (station) {
+              station.availableParking = Math.min(station.totalParking, station.availableParking + 1);
+              station.availableChargers = Math.min(station.totalChargers, station.availableChargers + 1);
+              
+              baseUpdates[`/stations/${vehicle.targetStationId}/availableParking`] = station.availableParking;
+              baseUpdates[`/stations/${vehicle.targetStationId}/availableChargers`] = station.availableChargers;
+            }
+
+            // Reset to driving with new destination
+            const stationIds = Object.keys(stations);
+            vehicle.status = "driving";
+            vehicle.batteryLevel = 100;
+            vehicle.etaMinutes = Math.floor(Math.random() * 26) + 5; // 5-30
+            vehicle.targetStationId = stationIds[Math.floor(Math.random() * stationIds.length)];
+            
+            console.log(`✨ Vehicle ${vehicleId} fully charged and departed for ${vehicle.targetStationId}`);
+          }
+        }
+
+        // Shared updates for all status types
+        baseUpdates[`/vehicles/${vehicleId}/batteryLevel`] = vehicle.batteryLevel;
+        baseUpdates[`/vehicles/${vehicleId}/etaMinutes`]   = vehicle.etaMinutes;
+        baseUpdates[`/vehicles/${vehicleId}/status`]       = vehicle.status;
+        baseUpdates[`/vehicles/${vehicleId}/targetStationId`] = vehicle.targetStationId;
       }
 
       // 3. Run allocator with advanced physics state

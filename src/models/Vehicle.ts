@@ -1,6 +1,6 @@
 import { ref, set, Database } from 'firebase/database';
 
-export type VehicleStatus = "driving" | "waiting" | "RESERVED" | "OCCUPIED";
+export type VehicleStatus = "driving" | "waiting" | "RESERVED" | "OCCUPIED" | "stranded";
 
 export interface Vehicle {
   id: string;

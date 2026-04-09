@@ -4,11 +4,11 @@ import type { StationsMap } from '../models/Station';
 /**
  * Calculates priority score based on battery and ETA.
  * High score = high priority.
- * Formula: (100 - batteryLevel) * 0.6 + (1 / (etaMinutes + 1)) * 40
+ * Formula: (100 - batteryLevel) * 0.8 + (1 / (etaMinutes + 1)) * 20
  */
 export function calculatePriorityScore(vehicle: Vehicle): number {
-  const batteryTerm = (100 - vehicle.batteryLevel) * 0.6;
-  const etaTerm = (1 / (vehicle.etaMinutes + 1)) * 40;
+  const batteryTerm = (100 - vehicle.batteryLevel) * 0.8;
+  const etaTerm = (1 / (vehicle.etaMinutes + 1)) * 20;
   return Number((batteryTerm + etaTerm).toFixed(2));
 }
 
@@ -24,8 +24,22 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
   const unassigned: Vehicle[] = [];
   const reserved: Vehicle[] = [];
 
+  const CONSUMPTION_RATE = 0.5; // battery units per ETA minute
+
   for (const v of Object.values(vehicles)) {
-    if (v.status === "driving" && v.etaMinutes <= 5 && v.batteryLevel <= 30) {
+    const batteryNeeded = v.etaMinutes * CONSUMPTION_RATE;
+    const hasRange = v.batteryLevel > batteryNeeded;
+
+    // Eligible if: 
+    // 1. Has enough battery to reach the station
+    // 2. Is driving
+    // 3. (Is close AND battery < 30%) OR (Battery is critical < 10%)
+    const isEligible = v.status === "driving" && hasRange && (
+      (v.etaMinutes <= 5 && v.batteryLevel <= 30) || 
+      (v.batteryLevel <= 10)
+    );
+
+    if (isEligible) {
       v.queuePriorityScore = calculatePriorityScore(v);
       updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
       unassigned.push(v);
