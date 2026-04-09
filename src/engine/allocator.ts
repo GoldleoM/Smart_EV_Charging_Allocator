@@ -25,7 +25,7 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
   const reserved: Vehicle[] = [];
 
   for (const v of Object.values(vehicles)) {
-    if (v.status === "driving" && v.etaMinutes <= 5) {
+    if (v.status === "driving" && v.etaMinutes <= 5 && v.batteryLevel <= 30) {
       v.queuePriorityScore = calculatePriorityScore(v);
       updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
       unassigned.push(v);

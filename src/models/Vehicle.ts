@@ -22,7 +22,7 @@ export async function generateVehicles(db: Database, count: number): Promise<voi
   const vehiclesData: VehiclesMap = {};
 
   for (let i = 1; i <= count; i++) {
-    const batteryLevel = Math.floor(Math.random() * 61) + 20; // 20-80
+    const batteryLevel = Math.floor(Math.random() * 41) + 10; // 10-50
     const etaMinutes = Math.floor(Math.random() * 26) + 5;    // 5-30
     const targetStationId = stationIds[Math.floor(Math.random() * stationIds.length)];
 

@@ -29,7 +29,7 @@ describe('Allocator Queue Bumping', () => {
         const vehicles: VehiclesMap = {
             v1: {
                 id: 'v1',
-                batteryLevel: 60,
+                batteryLevel: 25,
                 etaMinutes: 2,
                 status: 'RESERVED',
                 targetStationId: 'station_1',
