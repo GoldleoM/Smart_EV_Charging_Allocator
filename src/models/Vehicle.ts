@@ -21,21 +21,49 @@ export async function generateVehicles(db: Database, count: number): Promise<voi
   const stationIds = ["station_1", "station_2", "station_3"];
   const vehiclesData: VehiclesMap = {};
 
+<<<<<<< HEAD
   for (let i = 1; i <= count; i++) {
     const batteryLevel = Math.floor(Math.random() * 41) + 10; // 10-50
     const etaMinutes = Math.floor(Math.random() * 26) + 5;    // 5-30
     const targetStationId = stationIds[Math.floor(Math.random() * stationIds.length)];
+=======
+  const stationLocs: Record<string, { lat: number, lng: number }> = {
+    "station_1": { lat: 40.7128, lng: -74.0060 }, // Downtown
+    "station_2": { lat: 40.7580, lng: -73.9855 }, // Midtown
+    "station_3": { lat: 40.7851, lng: -73.9683 }  // Uptown
+  };
+
+  for (let i = 1; i <= count; i++) {
+    const batteryLevel = Math.floor(Math.random() * 41) + 10; // 10-50
+    const targetStationId = stationIds[Math.floor(Math.random() * stationIds.length)];
+    const targetLoc = stationLocs[targetStationId];
+    
+    // Generate inside a ~10km radius from the target station to fit inside the Zoom radius
+    const vLat = targetLoc.lat + (Math.random() - 0.5) * 0.08;
+    const vLng = targetLoc.lng + (Math.random() - 0.5) * 0.08;
+    
+    // Formula: 1 degree = 111km. Speed = 30km/h = 0.5km/min. Mins = (degree * 111) / 0.5 = degree * 222.
+    const distanceDegree = Math.sqrt(Math.pow(vLat - targetLoc.lat, 2) + Math.pow(vLng - targetLoc.lng, 2));
+    let accurateEta = Math.round(distanceDegree * 222);
+    if (accurateEta < 2) accurateEta = 2;
+>>>>>>> origin/Jayant
 
     vehiclesData[`vehicle_${i}`] = {
       id: `vehicle_${i}`,
       batteryLevel,
       status: "driving",
+<<<<<<< HEAD
       location: {
         lat: 40.7 + (Math.random() * 0.1),
         lng: -74.0 + (Math.random() * 0.1)
       },
       targetStationId,
       etaMinutes,
+=======
+      location: { lat: vLat, lng: vLng },
+      targetStationId,
+      etaMinutes: accurateEta,
+>>>>>>> origin/Jayant
       queuePriorityScore: 0
     };
   }

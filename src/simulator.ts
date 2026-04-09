@@ -27,6 +27,10 @@ async function runSimulator(): Promise<void> {
       const state = snapshot.val();
       
       if (!state || !state.vehicles || !state.stations) return;
+<<<<<<< HEAD
+=======
+      if (state.system?.isPaused) return;
+>>>>>>> origin/Jayant
 
       const vehicles = state.vehicles as VehiclesMap;
       const stations = state.stations as StationsMap;
@@ -46,8 +50,34 @@ async function runSimulator(): Promise<void> {
             vehicle.batteryLevel = nextBattery;
             vehicle.etaMinutes = Math.max(0, parseFloat((vehicle.etaMinutes - 0.2).toFixed(2)));
             
+<<<<<<< HEAD
             if (vehicle.etaMinutes === 0) {
               vehicle.status = "waiting"; 
+=======
+            // Move location towards target station accurately based on ETA remaining
+            const targetStation = stations[vehicle.targetStationId];
+            if (targetStation && targetStation.location && vehicle.location) {
+              const dLat = targetStation.location.lat - vehicle.location.lat;
+              const dLng = targetStation.location.lng - vehicle.location.lng;
+              
+              if (vehicle.etaMinutes > 0) {
+                 // The fraction of the trip left to cover in this single tick (0.2 eta reduction per tick)
+                 // Math.min guards against dividing by zero or overshooting
+                 const fraction = Math.min(1, 0.2 / vehicle.etaMinutes);
+                 
+                 vehicle.location.lat += dLat * fraction;
+                 vehicle.location.lng += dLng * fraction;
+                 baseUpdates[`/vehicles/${vehicleId}/location`] = vehicle.location;
+              }
+            }
+
+            if (vehicle.etaMinutes === 0) {
+              vehicle.status = "waiting"; 
+              if (targetStation && targetStation.location) {
+                 vehicle.location = { ...targetStation.location };
+                 baseUpdates[`/vehicles/${vehicleId}/location`] = vehicle.location;
+              }
+>>>>>>> origin/Jayant
             }
           }
         }
@@ -75,8 +105,28 @@ async function runSimulator(): Promise<void> {
             const stationIds = Object.keys(stations);
             vehicle.status = "driving";
             vehicle.batteryLevel = 100;
+<<<<<<< HEAD
             vehicle.etaMinutes = Math.floor(Math.random() * 26) + 5; // 5-30
             vehicle.targetStationId = stationIds[Math.floor(Math.random() * stationIds.length)];
+=======
+            const newTargetId = stationIds[Math.floor(Math.random() * stationIds.length)];
+            vehicle.targetStationId = newTargetId;
+            
+            // Calculate accurate realistic math for ETA from the current station to the new one!
+            const newTarget = stations[newTargetId];
+            if (newTarget && newTarget.location && vehicle.location) {
+              const distDeg = Math.sqrt(
+                Math.pow(newTarget.location.lat - vehicle.location.lat, 2) + 
+                Math.pow(newTarget.location.lng - vehicle.location.lng, 2)
+              );
+              // 1 degree = 111km. Speed = 30km/h = 0.5km/min. Therefore mins = distDeg * 111 * 2
+              let accurateEta = Math.round(distDeg * 222);
+              if (accurateEta < 2) accurateEta = 2;
+              vehicle.etaMinutes = accurateEta;
+            } else {
+               vehicle.etaMinutes = 15; // Safe fallback
+            }
+>>>>>>> origin/Jayant
             
             console.log(`✨ Vehicle ${vehicleId} fully charged and departed for ${vehicle.targetStationId}`);
           }

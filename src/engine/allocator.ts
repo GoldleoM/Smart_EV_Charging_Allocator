@@ -41,11 +41,19 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
 
     if (isEligible) {
       v.queuePriorityScore = calculatePriorityScore(v);
+<<<<<<< HEAD
       updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
       unassigned.push(v);
     } else if (v.status === "RESERVED") {
       v.queuePriorityScore = calculatePriorityScore(v);
       updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
+=======
+      if (v.id) updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
+      unassigned.push(v);
+    } else if (v.status === "RESERVED") {
+      v.queuePriorityScore = calculatePriorityScore(v);
+      if (v.id) updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
+>>>>>>> origin/Jayant
       reserved.push(v);
     }
   }
@@ -55,6 +63,7 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
 
   // 3. Allocate (or Bump!) sequentially
   for (const vehicle of unassigned) {
+<<<<<<< HEAD
     const station = stations[vehicle.targetStationId];
     
     // Attempt normal allocation
@@ -94,6 +103,91 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
         weakest.status = "driving";
         reserved.shift(); // remove weakest
         reserved.push(vehicle); // add critical
+=======
+    // Find all stations that currently have capacity
+    const availableStations = Object.entries(stations).filter(([id, st]) => st.availableParking > 0 && st.availableChargers > 0);
+    
+    let bestStationId: string | null = null;
+    let minDistance = Infinity;
+
+    if (availableStations.length > 0 && vehicle.location) {
+      // Find the absolute closest geographic station with capacity
+      for (const [sId, st] of availableStations) {
+         if (!st.location) continue;
+         const dist = Math.sqrt(Math.pow(st.location.lat - vehicle.location.lat, 2) + Math.pow(st.location.lng - vehicle.location.lng, 2));
+         if (dist < minDistance) {
+            minDistance = dist;
+            bestStationId = sId;
+         }
+      }
+    }
+
+    const vId = vehicle.id;
+    if (!vId) continue;
+
+    // Normal Allocation at closest station
+    if (bestStationId) {
+      const station = stations[bestStationId];
+      station.availableParking -= 1;
+      station.availableChargers -= 1;
+
+      updates[`/stations/${bestStationId}/availableParking`] = station.availableParking;
+      updates[`/stations/${bestStationId}/availableChargers`] = station.availableChargers;
+      updates[`/vehicles/${vId}/status`] = "RESERVED";
+      
+      // If the AI re-routed the vehicle, calculate valid ETA and commit
+      if (bestStationId !== vehicle.targetStationId) {
+         vehicle.targetStationId = bestStationId;
+         updates[`/vehicles/${vId}/targetStationId`] = bestStationId;
+         
+         let accurateEta = Math.round(minDistance * 222);
+         if (accurateEta < 2) accurateEta = 2;
+         vehicle.etaMinutes = accurateEta;
+         updates[`/vehicles/${vId}/etaMinutes`] = accurateEta;
+         
+         vehicle.queuePriorityScore = calculatePriorityScore(vehicle);
+         updates[`/vehicles/${vId}/queuePriorityScore`] = vehicle.queuePriorityScore;
+      }
+      
+      vehicle.status = "RESERVED";
+      reserved.push(vehicle);
+    } 
+    // Attempt bumping (Critical <= 10%) if everything is full
+    else if (vehicle.batteryLevel <= 10 && reserved.length > 0) {
+      reserved.sort((a, b) => a.queuePriorityScore - b.queuePriorityScore);
+      const weakest = reserved[0]; 
+      
+      if (vehicle.queuePriorityScore > weakest.queuePriorityScore) {
+        const wId = weakest.id;
+        const newStationId = weakest.targetStationId;
+        
+        // Re-route
+        vehicle.targetStationId = newStationId;
+        updates[`/vehicles/${vId}/targetStationId`] = newStationId;
+        updates[`/vehicles/${vId}/status`] = "RESERVED";
+        
+        // Calculate newly re-routed ETA physically
+        const newStation = stations[newStationId];
+        if (newStation && newStation.location && vehicle.location) {
+            const dist = Math.sqrt(Math.pow(newStation.location.lat - vehicle.location.lat, 2) + Math.pow(newStation.location.lng - vehicle.location.lng, 2));
+            let accurateEta = Math.round(dist * 222);
+            if (accurateEta < 2) accurateEta = 2;
+            vehicle.etaMinutes = accurateEta;
+            updates[`/vehicles/${vId}/etaMinutes`] = accurateEta;
+            
+            vehicle.queuePriorityScore = calculatePriorityScore(vehicle);
+            updates[`/vehicles/${vId}/queuePriorityScore`] = vehicle.queuePriorityScore;
+        }
+
+        if (wId) {
+          updates[`/vehicles/${wId}/status`] = "driving";
+        }
+
+        vehicle.status = "RESERVED";
+        weakest.status = "driving";
+        reserved.shift(); 
+        reserved.push(vehicle); 
+>>>>>>> origin/Jayant
       }
     }
   }
