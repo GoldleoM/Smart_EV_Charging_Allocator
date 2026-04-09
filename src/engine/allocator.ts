@@ -1,3 +1,4 @@
+
 import type { Vehicle, VehiclesMap } from '../models/Vehicle';
 import type { StationsMap } from '../models/Station';
 
@@ -20,176 +21,147 @@ export function calculatePriorityScore(vehicle: Vehicle): number {
 export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Record<string, any> {
   const updates: Record<string, any> = {};
 
-  // 1. Gather & Score all vehicles
-  const unassigned: Vehicle[] = [];
-  const reserved: Vehicle[] = [];
+  const activeSeeking: Vehicle[] = [];
+  const currentlyReserved: Vehicle[] = [];
+  const queueCounts: Record<string, number> = {};
 
   const CONSUMPTION_RATE = 0.5; // battery units per ETA minute
 
+  // 1. Gather & Score all vehicles
   for (const v of Object.values(vehicles)) {
+    if (v.status === "OCCUPIED") continue; // Safely ignore already charging cars
+
+    if (v.status === "RESERVED" || v.status === "waiting") {
+      v.queuePriorityScore = calculatePriorityScore(v);
+      if (v.id) updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
+      currentlyReserved.push(v);
+    }
+
     const batteryNeeded = v.etaMinutes * CONSUMPTION_RATE;
     const hasRange = v.batteryLevel > batteryNeeded;
 
-    // Eligible if: 
-    // 1. Has enough battery to reach the station
-    // 2. Is driving
-    // 3. (Is close AND battery < 30%) OR (Battery is critical < 10%)
+    // Eligible if driving AND has battery range AND (is close OR is critical)
     const isEligible = v.status === "driving" && hasRange && (
-      (v.etaMinutes <= 5 && v.batteryLevel <= 30) || 
-      (v.batteryLevel <= 10)
+      (v.etaMinutes <= 7 && v.batteryLevel <= 30) ||
+      (v.batteryLevel <= 18)
     );
 
     if (isEligible) {
       v.queuePriorityScore = calculatePriorityScore(v);
-<<<<<<< HEAD
-      updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
-      unassigned.push(v);
-    } else if (v.status === "RESERVED") {
-      v.queuePriorityScore = calculatePriorityScore(v);
-      updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
-=======
       if (v.id) updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
-      unassigned.push(v);
-    } else if (v.status === "RESERVED") {
-      v.queuePriorityScore = calculatePriorityScore(v);
-      if (v.id) updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
->>>>>>> origin/Jayant
-      reserved.push(v);
+      activeSeeking.push(v);
     }
   }
 
-  // 2. Sort unassigned descending (highest priority gets first dibs)
-  unassigned.sort((a, b) => b.queuePriorityScore - a.queuePriorityScore);
+  // 2. Predict Queues and Route Efficiently
+  // Combine arrays to evaluate everyone for best routes!
+  // Sort by highest priority: highest gets the best routing choices first
+  const allRouting = [...activeSeeking, ...currentlyReserved].sort((a, b) => b.queuePriorityScore - a.queuePriorityScore);
 
-  // 3. Allocate (or Bump!) sequentially
-  for (const vehicle of unassigned) {
-<<<<<<< HEAD
-    const station = stations[vehicle.targetStationId];
-    
-    // Attempt normal allocation
-    if (station && station.availableParking > 0 && station.availableChargers > 0) {
-      // Lock dual resources
-      station.availableParking -= 1;
-      station.availableChargers -= 1;
+  // Start fresh simulated queues since we iterate in highest-priority-first order!
+  const currentVirtualQueues: Record<string, number> = {};
+  const currentVirtualIncoming: Record<string, number> = {};
 
-      // Queue the updates
-      updates[`/stations/${vehicle.targetStationId}/availableParking`] = station.availableParking;
-      updates[`/stations/${vehicle.targetStationId}/availableChargers`] = station.availableChargers;
-      updates[`/vehicles/${vehicle.id}/status`] = "RESERVED";
-      
-      // Keep local pools updated for subsequent loop iterations
-      vehicle.status = "RESERVED";
-      reserved.push(vehicle);
-    } 
-    // Attempt bumping (Critical <= 10%)
-    else if (vehicle.batteryLevel <= 10 && reserved.length > 0) {
-      // Sort ascending, lowest priority first
-      reserved.sort((a, b) => a.queuePriorityScore - b.queuePriorityScore);
-      
-      const weakest = reserved[0]; 
-      
-      // Ensure the critical car is actually more urgent
-      if (vehicle.queuePriorityScore > weakest.queuePriorityScore) {
-        // Re-route and seize slot
-        vehicle.targetStationId = weakest.targetStationId;
-        updates[`/vehicles/${vehicle.id}/targetStationId`] = vehicle.targetStationId;
-        updates[`/vehicles/${vehicle.id}/status`] = "RESERVED";
-        
-        // Displace the weak vehicle
-        updates[`/vehicles/${weakest.id}/status`] = "driving";
-
-        // Keep local pools updated
-        vehicle.status = "RESERVED";
-        weakest.status = "driving";
-        reserved.shift(); // remove weakest
-        reserved.push(vehicle); // add critical
-=======
-    // Find all stations that currently have capacity
-    const availableStations = Object.entries(stations).filter(([id, st]) => st.availableParking > 0 && st.availableChargers > 0);
-    
-    let bestStationId: string | null = null;
-    let minDistance = Infinity;
-
-    if (availableStations.length > 0 && vehicle.location) {
-      // Find the absolute closest geographic station with capacity
-      for (const [sId, st] of availableStations) {
-         if (!st.location) continue;
-         const dist = Math.sqrt(Math.pow(st.location.lat - vehicle.location.lat, 2) + Math.pow(st.location.lng - vehicle.location.lng, 2));
-         if (dist < minDistance) {
-            minDistance = dist;
-            bestStationId = sId;
-         }
-      }
-    }
-
+  for (const vehicle of allRouting) {
     const vId = vehicle.id;
     if (!vId) continue;
 
-    // Normal Allocation at closest station
-    if (bestStationId) {
-      const station = stations[bestStationId];
-      station.availableParking -= 1;
-      station.availableChargers -= 1;
-
-      updates[`/stations/${bestStationId}/availableParking`] = station.availableParking;
-      updates[`/stations/${bestStationId}/availableChargers`] = station.availableChargers;
-      updates[`/vehicles/${vId}/status`] = "RESERVED";
-      
-      // If the AI re-routed the vehicle, calculate valid ETA and commit
-      if (bestStationId !== vehicle.targetStationId) {
-         vehicle.targetStationId = bestStationId;
-         updates[`/vehicles/${vId}/targetStationId`] = bestStationId;
-         
-         let accurateEta = Math.round(minDistance * 222);
-         if (accurateEta < 2) accurateEta = 2;
-         vehicle.etaMinutes = accurateEta;
-         updates[`/vehicles/${vId}/etaMinutes`] = accurateEta;
-         
-         vehicle.queuePriorityScore = calculatePriorityScore(vehicle);
-         updates[`/vehicles/${vId}/queuePriorityScore`] = vehicle.queuePriorityScore;
+    if (vehicle.isManualSelection && vehicle.targetStationId) {
+      // Driver picked this station manually! Respect the AI lock, but still emit their presence to virtual queues so AI vehicles route around them.
+      currentVirtualQueues[vehicle.targetStationId] = (currentVirtualQueues[vehicle.targetStationId] || 0) + 1;
+      const requiresNewParking = !(vehicle.status === "waiting");
+      if (requiresNewParking) {
+        currentVirtualIncoming[vehicle.targetStationId] = (currentVirtualIncoming[vehicle.targetStationId] || 0) + 1;
       }
-      
-      vehicle.status = "RESERVED";
-      reserved.push(vehicle);
-    } 
-    // Attempt bumping (Critical <= 10%) if everything is full
-    else if (vehicle.batteryLevel <= 10 && reserved.length > 0) {
-      reserved.sort((a, b) => a.queuePriorityScore - b.queuePriorityScore);
-      const weakest = reserved[0]; 
-      
-      if (vehicle.queuePriorityScore > weakest.queuePriorityScore) {
-        const wId = weakest.id;
-        const newStationId = weakest.targetStationId;
-        
-        // Re-route
-        vehicle.targetStationId = newStationId;
-        updates[`/vehicles/${vId}/targetStationId`] = newStationId;
-        updates[`/vehicles/${vId}/status`] = "RESERVED";
-        
-        // Calculate newly re-routed ETA physically
-        const newStation = stations[newStationId];
-        if (newStation && newStation.location && vehicle.location) {
-            const dist = Math.sqrt(Math.pow(newStation.location.lat - vehicle.location.lat, 2) + Math.pow(newStation.location.lng - vehicle.location.lng, 2));
-            let accurateEta = Math.round(dist * 222);
-            if (accurateEta < 2) accurateEta = 2;
-            vehicle.etaMinutes = accurateEta;
-            updates[`/vehicles/${vId}/etaMinutes`] = accurateEta;
-            
-            vehicle.queuePriorityScore = calculatePriorityScore(vehicle);
-            updates[`/vehicles/${vId}/queuePriorityScore`] = vehicle.queuePriorityScore;
-        }
+      continue; // Skip the routing algorithm completely
+    }
 
-        if (wId) {
-          updates[`/vehicles/${wId}/status`] = "driving";
-        }
+    let bestStationId: string | null = null;
+    let lowestCost = Infinity;
+    let newEta = vehicle.etaMinutes;
 
-        vehicle.status = "RESERVED";
-        weakest.status = "driving";
-        reserved.shift(); 
-        reserved.push(vehicle); 
->>>>>>> origin/Jayant
+    for (const [sId, st] of Object.entries(stations)) {
+      if (!st.location || !vehicle.location) continue;
+
+      const dist = Math.sqrt(Math.pow(st.location.lat - vehicle.location.lat, 2) + Math.pow(st.location.lng - vehicle.location.lng, 2));
+      let accurateEta = Math.round(dist * 222);
+      if (accurateEta < 2) accurateEta = 2; // Base travel time
+
+      // Can we physically reach it?
+      if (vehicle.batteryLevel <= accurateEta * CONSUMPTION_RATE) continue;
+
+      // Project Wait Time for Chargers
+      // Because we process highest priority vehicles first, carsAhead is EXACTLY the size of the virtual queue we've built so far!
+      const carsAheadForCharger = currentVirtualQueues[sId] || 0;
+
+      let waitCost = 0;
+      if (carsAheadForCharger >= st.availableChargers) {
+        // If available chargers is full, the very first car to wait (carsAhead=0) MUST wait for 1 car turnover.
+        const waitingCarsToClear = carsAheadForCharger - st.availableChargers + 1;
+        waitCost = Math.ceil(waitingCarsToClear / Math.max(1, st.totalChargers)) * 10;
+      }
+
+      // Project Wait Time for Parking
+      const requiresNewParking = !(vehicle.status === "waiting" && vehicle.targetStationId === sId);
+      const carsIncomingAhead = currentVirtualIncoming[sId] || 0;
+
+      // Massive penalty if physical parking will be completely full upon arrival!
+      if (requiresNewParking && carsIncomingAhead >= st.availableParking) {
+          waitCost += 1000;
+      }
+
+      // Increased penalty if changing destinations to avoid thrashing
+      let switchPenalty = (vehicle.targetStationId && vehicle.targetStationId !== sId) ? 15 : 0;
+      if (vehicle.targetStationId && vehicle.targetStationId !== sId && vehicle.etaMinutes <= 5) {
+        switchPenalty += 1000; // Almost never reroute if inside 5 minute proximity!
+      }
+      const totalCost = accurateEta + waitCost + switchPenalty;
+
+      if (totalCost < lowestCost) {
+        lowestCost = totalCost;
+        bestStationId = sId;
+        newEta = accurateEta;
       }
     }
+
+    // 3. Finalize Routing
+    if (bestStationId) {
+      // Claim spots in the virtual queues so lower priority cars know we are ahead of them!
+      currentVirtualQueues[bestStationId] = (currentVirtualQueues[bestStationId] || 0) + 1;
+      
+      const requiresNewParking = !(vehicle.status === "waiting" && vehicle.targetStationId === bestStationId);
+      if (requiresNewParking) {
+        currentVirtualIncoming[bestStationId] = (currentVirtualIncoming[bestStationId] || 0) + 1;
+      }
+
+      if (vehicle.status === "RESERVED" || vehicle.status === "waiting") {
+        if (vehicle.targetStationId !== bestStationId) {
+          // We are abandoning our old station!
+          // If we were physically waiting, refund the parking spot so someone else can evaluate it right now!
+          if (vehicle.status === "waiting") {
+            const oldSt = stations[vehicle.targetStationId];
+            if (oldSt) {
+              oldSt.availableParking = Math.min(oldSt.totalParking, oldSt.availableParking + 1);
+              updates[`/stations/${vehicle.targetStationId}/availableParking`] = oldSt.availableParking;
+            }
+          }
+
+          updates[`/vehicles/${vId}/targetStationId`] = bestStationId;
+          updates[`/vehicles/${vId}/etaMinutes`] = newEta;
+          updates[`/vehicles/${vId}/status`] = "RESERVED";
+          updates[`/vehicles/${vId}/isRerouted`] = true;
+        }
+      } else if (vehicle.status === "driving") {
+        updates[`/vehicles/${vId}/targetStationId`] = bestStationId;
+        updates[`/vehicles/${vId}/etaMinutes`] = newEta;
+        updates[`/vehicles/${vId}/status`] = "RESERVED";
+      }
+    }
+  }
+
+  // 4. Expose Queue Length to Global State for UI Transparency
+  for (const sId of Object.keys(stations)) {
+    updates[`/stations/${sId}/queueLength`] = currentVirtualQueues[sId] || 0;
   }
 
   return updates;

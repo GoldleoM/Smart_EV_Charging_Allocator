@@ -6,9 +6,10 @@ import { Zap, Car } from 'lucide-react';
 
 interface StationMarkerProps {
   station: Station;
+  queueLength: number;
 }
 
-export function StationMarker({ station }: StationMarkerProps) {
+export function StationMarker({ station, queueLength }: StationMarkerProps) {
   const loadPercentage = ((station.totalChargers - station.availableChargers) / station.totalChargers) * 100;
   
   let loadColor = 'text-green-400';
@@ -56,9 +57,14 @@ export function StationMarker({ station }: StationMarkerProps) {
             </div>
           </div>
           
-          {station.availableParking === 0 && (
-            <div className="text-[10px] text-center text-red-300 font-medium uppercase mt-1">
-              Queue Full
+          {queueLength > 0 && (
+            <div className="text-[10px] text-center text-yellow-300 font-bold uppercase mt-1 bg-yellow-900/40 rounded px-1">
+              Queue: {queueLength}
+            </div>
+          )}
+          {station.availableParking === 0 && queueLength > 0 && (
+            <div className="text-[10px] text-center text-red-300 font-medium uppercase mt-0.5">
+              Parking Full
             </div>
           )}
         </div>

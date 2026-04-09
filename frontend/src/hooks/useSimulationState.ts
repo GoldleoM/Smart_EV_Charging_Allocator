@@ -12,6 +12,8 @@ export interface Vehicle {
   targetStationId: string;
   etaMinutes: number;
   queuePriorityScore: number;
+  isRerouted?: boolean;
+  isManualSelection?: boolean;
 }
 
 export interface Station {
@@ -21,10 +23,13 @@ export interface Station {
   availableParking: number;
   totalChargers: number;
   availableChargers: number;
+  queueLength?: number;
 }
 
 export interface SystemState {
   isPaused?: boolean;
+  tickInterval?: number;
+  speedMultiplier?: number;
 }
 
 export interface SimulationState {

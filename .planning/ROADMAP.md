@@ -20,6 +20,7 @@
 ## Phase 3: V2N Simulation & Real-Time Sync
 **Goal**: Implement live vehicle movement, battery decay, and WebSocket integration for real-time queue orchestration.
 **Requirements**: SIM-01, RT-01, RT-02, ALLOC-03
+**Status**: Complete ✅
 **Success Criteria**:
 - Vehicles decrease battery and update location every 2-5 seconds.
 - Clients receive continuous queue updates and ETA recalculations over WebSockets.
@@ -28,9 +29,20 @@
 ## Phase 4: Interactive Dashboard & UI
 **Goal**: Build the frontend visualizations and simulation controls for the hackathon demo.
 **Requirements**: UI-01, UI-02, UI-03, UI-04
+**Status**: Complete ✅
 **Success Criteria**:
 **UI hint**: yes
 - Google Map correctly renders stations and allocated locations.
 - Station View accurately reflects live charger and parking states.
 - Vehicle panel updates dynamically without requiring page refreshes.
 - Simulation controls correctly trigger backend changes (e.g. forced battery drop).
+
+### Phase 5: consumer side app prototype
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 5 to break down)

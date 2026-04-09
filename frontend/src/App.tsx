@@ -14,9 +14,9 @@ function App() {
       <div className="absolute inset-0 z-10 pointer-events-none p-6 flex flex-col justify-between">
         
         {/* TOP ROW */}
-        <div className="flex justify-between items-start pointer-events-auto">
-          <SystemOverview />
-          <StationSummary />
+        <div className="flex justify-between items-start pointer-events-none w-full">
+          <div className="pointer-events-auto"><SystemOverview /></div>
+          <div className="pointer-events-auto"><StationSummary /></div>
         </div>
 
         {/* BOTTOM ROW */}

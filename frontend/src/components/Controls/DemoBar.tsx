@@ -45,6 +45,11 @@ export function DemoBar() {
     await update(ref(db, '/system'), { isPaused: !isPaused });
   };
 
+  const setSpeed = async (multiplier: number) => {
+    const baseInterval = 5000;
+    await update(ref(db, '/system'), { tickInterval: baseInterval / multiplier, speedMultiplier: multiplier });
+  };
+
   const addStation = async () => {
     const name = window.prompt("Enter Station Name (e.g. 'East Side Hub'):");
     if (!name) return;
@@ -162,8 +167,22 @@ export function DemoBar() {
               : "bg-green-500/10 border-green-500/30 text-green-400"
           }`}
         >
-          <Cpu size={14} /> {isPaused ? "AI Allocator PAUSED" : "AI Allocator ON"}
+          <Cpu size={14} /> {isPaused ? "AI PAUSED" : "AI ON"}
         </button>
+
+        <div className="flex bg-white/5 border border-white/10 rounded-lg p-1 ml-4 overflow-hidden">
+           {[1, 2, 5, 10].map(speed => (
+             <button
+                key={speed}
+                onClick={() => setSpeed(speed)}
+                className={`px-2 py-1 text-xs font-bold rounded-md transition-colors ${
+                   state.system?.speedMultiplier === speed ? "bg-white/20 text-white" : "text-white/50 hover:bg-white/10 hover:text-white"
+                }`}
+             >
+                {speed}x
+             </button>
+           ))}
+        </div>
       </div>
     </motion.div>
   );

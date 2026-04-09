@@ -21,9 +21,10 @@ export function LiveMap() {
           disableDefaultUI={true}
           gestureHandling={'greedy'}
         >
-          {Object.entries(stations).map(([stationId, station]) => (
-            <StationMarker key={stationId} station={station} />
-          ))}
+          {Object.entries(stations).map(([stationId, station]) => {
+            const queueLength = Object.values(vehicles).filter((v: any) => v.targetStationId === stationId && (v.status === "RESERVED" || v.status === "waiting")).length;
+            return <StationMarker key={stationId} station={station} queueLength={queueLength} />;
+          })}
 
           {Object.entries(vehicles).map(([vId, vehicle]) => {
             const targetName = stations[vehicle.targetStationId]?.name || "Unknown Station";

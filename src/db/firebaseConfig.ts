@@ -1,15 +1,18 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { initializeApp } from 'firebase/app';
 import { getDatabase, Database } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: "[GCP_API_KEY]",
-  authDomain: "ev-charging-7354b.firebaseapp.com",
-  projectId: "ev-charging-7354b",
-  storageBucket: "ev-charging-7354b.firebasestorage.app",
-  messagingSenderId: "265867944795",
-  appId: "1:265867944795:web:8b7dc0b0c6fddb6431b07e",
-  measurementId: "G-K8NJ71LNDK",
-  databaseURL: "https://ev-charging-7354b-default-rtdb.asia-southeast1.firebasedatabase.app"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID,
+  databaseURL: process.env.FIREBASE_DATABASE_URL || process.env.FIREBASE_DB_URL
 };
 
 const app = initializeApp(firebaseConfig);

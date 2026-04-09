@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dark-900: #0f1115;
+  --color-dark-800: #161921;
+  --color-dark-700: #1e212b;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-dark-900);
+    color: white;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@utility glass-panel {
+  background-color: color-mix(in srgb, var(--color-dark-800) 80%, transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, white 10%, transparent);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+@utility custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, white 20%, transparent) transparent;
+}

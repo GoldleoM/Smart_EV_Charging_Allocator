@@ -10,6 +10,7 @@ export interface Station {
   availableParking: number;
   totalChargers: number;
   availableChargers: number;
+  queueLength?: number;
 }
 
 export type StationsMap = Record<string, Station>;

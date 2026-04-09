@@ -1,6 +1,6 @@
 import { ref, set, Database } from 'firebase/database';
 
-export type VehicleStatus = "driving" | "waiting" | "RESERVED" | "OCCUPIED" | "stranded";
+export type VehicleStatus = "idle" | "driving" | "waiting" | "RESERVED" | "OCCUPIED" | "stranded";
 
 export interface Vehicle {
   id: string;
@@ -13,6 +13,8 @@ export interface Vehicle {
   targetStationId: string;
   etaMinutes: number;
   queuePriorityScore: number;
+  isRerouted?: boolean;
+  isManualSelection?: boolean;
 }
 
 export type VehiclesMap = Record<string, Vehicle>;
@@ -21,12 +23,6 @@ export async function generateVehicles(db: Database, count: number): Promise<voi
   const stationIds = ["station_1", "station_2", "station_3"];
   const vehiclesData: VehiclesMap = {};
 
-<<<<<<< HEAD
-  for (let i = 1; i <= count; i++) {
-    const batteryLevel = Math.floor(Math.random() * 41) + 10; // 10-50
-    const etaMinutes = Math.floor(Math.random() * 26) + 5;    // 5-30
-    const targetStationId = stationIds[Math.floor(Math.random() * stationIds.length)];
-=======
   const stationLocs: Record<string, { lat: number, lng: number }> = {
     "station_1": { lat: 40.7128, lng: -74.0060 }, // Downtown
     "station_2": { lat: 40.7580, lng: -73.9855 }, // Midtown
@@ -46,24 +42,14 @@ export async function generateVehicles(db: Database, count: number): Promise<voi
     const distanceDegree = Math.sqrt(Math.pow(vLat - targetLoc.lat, 2) + Math.pow(vLng - targetLoc.lng, 2));
     let accurateEta = Math.round(distanceDegree * 222);
     if (accurateEta < 2) accurateEta = 2;
->>>>>>> origin/Jayant
 
     vehiclesData[`vehicle_${i}`] = {
       id: `vehicle_${i}`,
       batteryLevel,
       status: "driving",
-<<<<<<< HEAD
-      location: {
-        lat: 40.7 + (Math.random() * 0.1),
-        lng: -74.0 + (Math.random() * 0.1)
-      },
-      targetStationId,
-      etaMinutes,
-=======
       location: { lat: vLat, lng: vLng },
       targetStationId,
       etaMinutes: accurateEta,
->>>>>>> origin/Jayant
       queuePriorityScore: 0
     };
   }
