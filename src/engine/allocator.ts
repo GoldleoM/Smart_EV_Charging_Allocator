@@ -20,21 +20,30 @@ export function calculatePriorityScore(vehicle: Vehicle): number {
 export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Record<string, any> {
   const updates: Record<string, any> = {};
 
-  // 1. Filter eligible: driving & ETA <= 5
-  const eligibleVehicles = Object.values(vehicles).filter(
-    (v) => v.status === "driving" && v.etaMinutes <= 5
-  );
+  // 1. Gather & Score all vehicles
+  const unassigned: Vehicle[] = [];
+  const reserved: Vehicle[] = [];
 
-  // 2. Score & Sort descending
-  eligibleVehicles.forEach(v => {
-    v.queuePriorityScore = calculatePriorityScore(v);
-    updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore; // ensure UI sees score
-  });
-  eligibleVehicles.sort((a, b) => b.queuePriorityScore - a.queuePriorityScore);
+  for (const v of Object.values(vehicles)) {
+    if (v.status === "driving" && v.etaMinutes <= 5) {
+      v.queuePriorityScore = calculatePriorityScore(v);
+      updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
+      unassigned.push(v);
+    } else if (v.status === "RESERVED") {
+      v.queuePriorityScore = calculatePriorityScore(v);
+      updates[`/vehicles/${v.id}/queuePriorityScore`] = v.queuePriorityScore;
+      reserved.push(v);
+    }
+  }
 
-  // 3. Allocate sequentially (simulated transaction)
-  for (const vehicle of eligibleVehicles) {
+  // 2. Sort unassigned descending (highest priority gets first dibs)
+  unassigned.sort((a, b) => b.queuePriorityScore - a.queuePriorityScore);
+
+  // 3. Allocate (or Bump!) sequentially
+  for (const vehicle of unassigned) {
     const station = stations[vehicle.targetStationId];
+    
+    // Attempt normal allocation
     if (station && station.availableParking > 0 && station.availableChargers > 0) {
       // Lock dual resources
       station.availableParking -= 1;
@@ -44,6 +53,34 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
       updates[`/stations/${vehicle.targetStationId}/availableParking`] = station.availableParking;
       updates[`/stations/${vehicle.targetStationId}/availableChargers`] = station.availableChargers;
       updates[`/vehicles/${vehicle.id}/status`] = "RESERVED";
+      
+      // Keep local pools updated for subsequent loop iterations
+      vehicle.status = "RESERVED";
+      reserved.push(vehicle);
+    } 
+    // Attempt bumping (Critical <= 10%)
+    else if (vehicle.batteryLevel <= 10 && reserved.length > 0) {
+      // Sort ascending, lowest priority first
+      reserved.sort((a, b) => a.queuePriorityScore - b.queuePriorityScore);
+      
+      const weakest = reserved[0]; 
+      
+      // Ensure the critical car is actually more urgent
+      if (vehicle.queuePriorityScore > weakest.queuePriorityScore) {
+        // Re-route and seize slot
+        vehicle.targetStationId = weakest.targetStationId;
+        updates[`/vehicles/${vehicle.id}/targetStationId`] = vehicle.targetStationId;
+        updates[`/vehicles/${vehicle.id}/status`] = "RESERVED";
+        
+        // Displace the weak vehicle
+        updates[`/vehicles/${weakest.id}/status`] = "driving";
+
+        // Keep local pools updated
+        vehicle.status = "RESERVED";
+        weakest.status = "driving";
+        reserved.shift(); // remove weakest
+        reserved.push(vehicle); // add critical
+      }
     }
   }
 
