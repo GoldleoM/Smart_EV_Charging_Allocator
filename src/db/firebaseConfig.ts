@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getDatabase, Database } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCts_-4sPu1raYqjBbfenyuTfmGguRT1sI",
+  apiKey: "[GCP_API_KEY]",
   authDomain: "ev-charging-7354b.firebaseapp.com",
   projectId: "ev-charging-7354b",
   storageBucket: "ev-charging-7354b.firebasestorage.app",
