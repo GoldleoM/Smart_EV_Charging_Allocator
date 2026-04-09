@@ -6,19 +6,36 @@
 
 ## Accomplishments
 
-1. **Queue Bumping Engine (ALLOC-03):** Extended `src/engine/allocator.ts` with critical-vehicle bumping logic. Vehicles with battery ≤ 10% can revoke reservations from the lowest-priority RESERVED vehicle when no free slots exist at their target station.
-2. **Dynamic RESERVED Pool Tracking:** The allocator now maintains both `unassigned` (driving, ETA ≤ 5) and `reserved` vehicle pools with live priority scoring, enabling real-time comparison during each tick.
-3. **Reservation Swap Logic:** Implemented net-zero capacity swaps — when a critical vehicle bumps a reserved one, station `availableParking`/`availableChargers` counts remain unchanged (the slot simply changes hands).
-4. **OCCUPIED Immunity:** `OCCUPIED` vehicles are never touched by bumping logic, ensuring active charging sessions are never interrupted.
-5. **Real-Time Sync via Firebase (RT-01, RT-02):** All state mutations go through Firebase `update()` with atomic multi-path writes. Frontend clients receive updates via Firebase's native `onValue` listeners — no custom WebSocket server needed.
-6. **Jest Test Coverage:** Added `Allocator Queue Bumping` test suite validating critical vehicle priority override, displaced vehicle demotion, and capacity count invariance.
+1. **Queue Bumping Engine (ALLOC-03):** 
+   - Implemented critical-vehicle bumping in `src/engine/allocator.ts`.
+   - Vehicles with battery ≤ 10% can now revoke reservations from lower-priority `RESERVED` vehicles.
+   - Priority weights adjusted to **80% Battery / 20% ETA** to favor urgency.
+
+2. **Full Charging Lifecycle:**
+   - **Arrival**: Vehicles transition to `OCCUPIED` status upon hitting 0m ETA.
+   - **Charging**: `OCCUPIED` vehicles gain +2% battery per 5s tick.
+   - **Departure**: Once at 100% battery, vehicles release their station slot (`availableParking++`) and reset to `driving` with a new random destination.
+
+3. **Physics & Range Improvements:**
+   - **Stranded Status**: Vehicles hitting 0% battery now stop moving (ETA halts) and are flagged as `stranded`.
+   - **Movement Fix**: Resolved bug where `RESERVED` vehicles would "freeze"; they now continue driving toward their destination.
+   - **Range Check**: The allocator now calculates if a vehicle can physically reach a station (consumption rate = 0.5% per minute) before allowing a reservation.
+
+4. **Real-Time Sync (RT-01, RT-02):**
+   - Verified native Firebase Realtime Database synchronization.
+   - All state transitions (Reservations, Bumps, Charging, Departures) are broadcast to the cloud for frontend visualization.
+
+5. **Validation:**
+   - Expanded Jest test suite in `tests/allocator.test.ts`.
+   - Live simulator verification confirmed self-sustaining loop.
 
 ## Files Modified
-- `src/engine/allocator.ts` — Added bumping logic to `allocateSlots()`
-- `tests/allocator.test.ts` — Added queue bumping test suite
+- `src/engine/allocator.ts` — Core logic, range checks, bumping, scoring weights.
+- `src/simulator.ts` — Physics loop, charging, departures, stranded status.
+- `src/models/Vehicle.ts` — Added `stranded` status and tuned initial seed battery ranges.
+- `tests/allocator.test.ts` — Added queue bumping and priority weight test cases.
 
 ## Technical Decisions
-- Bumping only triggers for `batteryLevel ≤ 10` (critical threshold)
-- Only `RESERVED` slots can be revoked; `OCCUPIED` are immune
-- Displaced vehicles return to `driving` status for re-evaluation
-- No custom WebSocket server — Firebase RTDB handles real-time transport natively
+- **Battery Weight (80%)**: Emergency vehicles are prioritized over "closer" vehicles with more charge.
+- **Consumption (0.5%/min)**: Balanced for a 3.3-hour "real-world" range suitable for demo visualization.
+- **Self-Cleaning Loop**: Departed vehicles keep the simulation alive forever.
