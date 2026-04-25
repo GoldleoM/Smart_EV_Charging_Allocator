@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ref, set, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
-import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRight, Hash } from 'lucide-react';
+import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRight, Hash, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimulationState } from '../hooks/useSimulationState';
 
@@ -11,6 +11,7 @@ export function StationPanel() {
   const { state } = useSimulationState();
   const vehicle = state.vehicles[USER_ID];
   const stations = state.stations;
+  const [searchTerm, setSearchTerm] = useState('');
 
   const stationName = vehicle?.targetStationId ? stations[vehicle.targetStationId]?.name : '';
 
@@ -33,7 +34,11 @@ export function StationPanel() {
   };
 
   const cancelCharge = () => {
-    remove(ref(db, `vehicles/${USER_ID}`));
+    // Do not delete the vehicle, just reset the session state
+    set(ref(db, `vehicles/${USER_ID}/targetStationId`), null);
+    set(ref(db, `vehicles/${USER_ID}/status`), 'idle');
+    set(ref(db, `vehicles/${USER_ID}/etaMinutes`), 0);
+    set(ref(db, `vehicles/${USER_ID}/isManualSelection`), false);
   };
 
   const getStatusDisplay = () => {
@@ -63,7 +68,7 @@ export function StationPanel() {
 
       <div className="flex-1 relative overflow-y-auto flex flex-col p-6 hide-scrollbar custom-scrollbar min-h-0">
         <AnimatePresence mode="wait">
-          {!vehicle ? (
+          {(!vehicle || !vehicle.targetStationId) ? (
             <motion.div 
               key="idle"
               initial={{ opacity: 0, x: -20 }}
@@ -93,9 +98,25 @@ export function StationPanel() {
                 <div className="flex-1 h-px bg-[#2a2638]"></div>
               </div>
 
+              {/* Search Bar */}
+              <div className="relative mb-4 shrink-0">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search size={14} className="text-gray-500" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search stations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-[#1a1723] text-sm text-gray-200 border border-[#2a2638] rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/50 transition-all placeholder:text-gray-600 shadow-inner"
+                />
+              </div>
+
               {/* Station Selection List */}
               <div className="flex flex-col gap-3 pb-4">
-                {Object.entries(stations).map(([id, st]) => (
+                {Object.entries(stations)
+                  .filter(([_, st]) => st.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map(([id, st]) => (
                   <button 
                     key={id} 
                     onClick={() => requestCharge(true, id)}

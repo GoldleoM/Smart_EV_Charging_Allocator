@@ -1,5 +1,5 @@
-import { AdvancedMarker } from '@vis.gl/react-google-maps';
 import type { Station } from '../../hooks/useSimulationState';
+import { AdvancedMarker } from '@vis.gl/react-google-maps';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { Zap, Car } from 'lucide-react';
@@ -57,6 +57,7 @@ export function StationMarker({ station, queueLength }: StationMarkerProps) {
             </div>
           </div>
           
+          {/* Note: Kept these clean badges based on original design */}
           {queueLength > 0 && (
             <div className="text-[10px] text-center text-yellow-300 font-bold uppercase mt-1 bg-yellow-900/40 rounded px-1">
               Queue: {queueLength}
