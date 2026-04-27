@@ -18,24 +18,24 @@ export type StationsMap = Record<string, Station>;
 export async function seedStations(db: Database): Promise<void> {
   const stationsData: StationsMap = {
     "station_1": {
-      name: "Downtown Hub",
-      location: { lat: 40.7128, lng: -74.0060 },
+      name: "Connaught Place Hub",
+      location: { lat: 28.6304, lng: 77.2177 },
       totalParking: 10,
       availableParking: 10,
       totalChargers: 5,
       availableChargers: 5
     },
     "station_2": {
-      name: "Midtown Fast-Charge",
-      location: { lat: 40.7580, lng: -73.9855 },
+      name: "Lajpat Nagar Fast-Charge",
+      location: { lat: 28.5677, lng: 77.2433 },
       totalParking: 8,
       availableParking: 8,
       totalChargers: 8,
       availableChargers: 8
     },
     "station_3": {
-      name: "Uptown Plaza",
-      location: { lat: 40.7851, lng: -73.9683 },
+      name: "Dwarka Sector 21 Plaza",
+      location: { lat: 28.5530, lng: 77.0588 },
       totalParking: 15,
       availableParking: 15,
       totalChargers: 3,

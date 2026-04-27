@@ -39,8 +39,8 @@ export function StationPanel() {
   const stationName = vehicle?.targetStationId ? stations[vehicle.targetStationId]?.name : '';
 
   const requestCharge = (isManual: boolean, targetId: string, initialStatus: string = 'RESERVED') => {
-    const baseLat = 40.7128; // New York base
-    const baseLng = -74.0060;
+    const baseLat = 28.6139; // New Delhi - Connaught Place
+    const baseLng = 77.2090;
     
     set(ref(db, `vehicles/${USER_ID}`), {
       id: USER_ID,
@@ -152,22 +152,23 @@ export function StationPanel() {
 
                   <form onSubmit={handleAiRoute} className="relative group shrink-0">
                     <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-xl group-hover:opacity-100 transition-opacity opacity-50 rounded-xl" />
-                    <div className="relative flex items-center bg-[#1a1723] border border-purple-500/30 rounded-xl overflow-hidden shadow-inner focus-within:border-pink-500/60 transition-colors">
-                      <div className="pl-4 text-purple-400">
-                        <Sparkles size={18} />
+                    <div className="relative flex items-start bg-[#1a1723] border border-purple-500/30 rounded-xl overflow-hidden shadow-inner focus-within:border-pink-500/60 transition-colors">
+                      <div className="pl-4 pt-4 text-purple-400">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 17.3726 12 24C12 17.3726 17.3726 12 24 12C17.3726 12 12 6.62742 12 0Z" fill="currentColor"/>
+                        </svg>
                       </div>
-                      <input
-                        type="text"
+                      <textarea
                         placeholder="Or tell AI: 'I'm in a rush!'"
                         value={aiPrompt}
                         onChange={(e) => setAiPrompt(e.target.value)}
                         disabled={isLoading}
-                        className="flex-1 w-full min-w-0 bg-transparent text-sm text-gray-200 py-4 px-3 focus:outline-none placeholder:text-gray-500 disabled:opacity-50"
+                        className="flex-1 w-full h-24 resize-none bg-transparent text-sm text-gray-200 py-4 px-3 focus:outline-none placeholder:text-gray-500 disabled:opacity-50 custom-scrollbar"
                       />
                       <button 
                         type="submit"
                         disabled={!aiPrompt.trim() || isLoading}
-                        className="px-4 py-2 mr-2 bg-purple-600/20 text-purple-300 rounded-lg hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-50 text-sm font-bold flex items-center gap-2"
+                        className="px-4 py-2 mr-2 mb-2 self-end bg-purple-600/20 text-purple-300 rounded-lg hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-50 text-sm font-bold flex items-center gap-2 shrink-0"
                       >
                         {isLoading ? <Loader2 size={16} className="animate-spin" /> : "Route"}
                       </button>

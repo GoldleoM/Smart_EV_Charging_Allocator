@@ -1,341 +1,270 @@
-import { useEffect, useState } from 'react';
-import { ref, onValue, set, remove } from 'firebase/database';
-import { db } from '../lib/firebase';
-import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRight, Hash, Sparkles, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useStationRecommendation } from '../hooks/useStationRecommendation';
-
-const USER_ID = 'manual_user_999';
-
-interface Vehicle {
-  id: string;
-  batteryLevel: number;
-  status: 'driving' | 'waiting' | 'OCCUPIED' | 'stranded' | 'RESERVED';
-  targetStationId: string;
-  etaMinutes: number;
-  queuePriorityScore?: number;
-  isManualSelection?: boolean;
-}
-
-interface Station {
-  name: string;
-  location: { lat: number; lng: number };
-  totalParking: number;
-  availableParking: number;
-  totalChargers: number;
-  availableChargers: number;
-  queueLength?: number;
-}
+import { useState, useRef, useCallback, useMemo } from 'react';
+import { Zap, Monitor, Map as MapIcon, Car, BatteryCharging, Navigation } from 'lucide-react';
+import { LiveMap } from './Map/LiveMap';
+import { StationPanel } from './StationPanel';
+import { useSimulationState } from '../hooks/useSimulationState';
 
 export function MobileView() {
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [stations, setStations] = useState<Record<string, Station>>({});
-  const [stationName, setStationName] = useState<string>('');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiReason, setAiReason] = useState('');
-  const { getRecommendations, isLoading } = useStationRecommendation();
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const { state } = useSimulationState();
+  const myVehicle = state.vehicles['manual_user_999'];
+  const batteryLevel = myVehicle ? Math.round(myVehicle.batteryLevel ?? 0) : 0;
+  const targetStation = myVehicle?.targetStationId ? state.stations[myVehicle.targetStationId]?.name : 'None';
 
-  const handleAiRoute = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!aiPrompt.trim() || isLoading) return;
-    setAiReason('');
-    
-    const decision = await getRecommendations(aiPrompt);
-    
-    if (decision && decision.recommendations.length > 0) {
-      const best = decision.recommendations[0];
-      setAiReason(best.explanation || "This is the best route.");
-      requestCharge(true, best.station_id, 'RESERVED');
-    } else {
-      setAiReason("Sorry, I couldn't understand that request. Try picking manually!");
-    }
-    setAiPrompt('');
+  // Haversine distance in km between two lat/lng points
+  const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   };
 
-  useEffect(() => {
-    const vehicleRef = ref(db, `vehicles/${USER_ID}`);
-    const unsub = onValue(vehicleRef, (snapshot) => {
-      setVehicle(snapshot.val() || null);
-    });
-    return () => unsub();
+  // User base location (from vehicle or Delhi fallback)
+  const userLat = myVehicle?.location?.lat ?? 28.6139;
+  const userLng = myVehicle?.location?.lng ?? 77.2090;
+
+  // Nearby stations within 15km, sorted by distance, top 3
+  const nearbyStations = useMemo(() => {
+    return Object.entries(state.stations || {})
+      .map(([id, st]) => ({
+        id, st,
+        distKm: haversineKm(userLat, userLng, st.location?.lat ?? 0, st.location?.lng ?? 0)
+      }))
+      .filter(({ distKm }) => distKm <= 15)
+      .sort((a, b) => a.distKm - b.distKm)
+      .slice(0, 3);
+  }, [state.stations, userLat, userLng]);
+
+  // Bottom sheet drag state
+  const SNAP_POSITIONS = [25, 62, 90]; // % of screen height
+  const [sheetHeight, setSheetHeight] = useState(62);
+  const dragStartY = useRef<number | null>(null);
+  const dragStartHeight = useRef<number>(62);
+
+  const onDragStart = useCallback((clientY: number) => {
+    dragStartY.current = clientY;
+    dragStartHeight.current = sheetHeight;
+  }, [sheetHeight]);
+
+  const onDragMove = useCallback((clientY: number) => {
+    if (dragStartY.current === null) return;
+    const deltaY = dragStartY.current - clientY;
+    const deltaPercent = (deltaY / window.innerHeight) * 100;
+    const newHeight = Math.min(92, Math.max(20, dragStartHeight.current + deltaPercent));
+    setSheetHeight(newHeight);
   }, []);
 
-  useEffect(() => {
-    const stationsRef = ref(db, `stations`);
-    const unsub = onValue(stationsRef, (snapshot) => {
-      setStations(snapshot.val() || {});
+  const onDragEnd = useCallback(() => {
+    if (dragStartY.current === null) return;
+    dragStartY.current = null;
+    // Snap to nearest position
+    setSheetHeight(prev => {
+      const nearest = SNAP_POSITIONS.reduce((a, b) =>
+        Math.abs(b - prev) < Math.abs(a - prev) ? b : a
+      );
+      return nearest;
     });
-    return () => unsub();
   }, []);
-
-  useEffect(() => {
-    if (vehicle?.targetStationId && stations[vehicle.targetStationId]) {
-      setStationName(stations[vehicle.targetStationId].name);
-    }
-  }, [vehicle?.targetStationId, stations]);
-
-  const requestCharge = (isManual: boolean, targetId: string, initialStatus: string = 'driving') => {
-    const baseLat = 40.7128; // New York base
-    const baseLng = -74.0060;
-    
-    set(ref(db, `vehicles/${USER_ID}`), {
-      id: USER_ID,
-      batteryLevel: 15,
-      status: initialStatus,
-      targetStationId: targetId,
-      etaMinutes: 10,
-      isManualSelection: isManual,
-      location: {
-        lat: baseLat + (Math.random() - 0.5) * 0.04,
-        lng: baseLng + (Math.random() - 0.5) * 0.04
-      }
-    });
-  };
-
-  const cancelCharge = () => {
-    remove(ref(db, `vehicles/${USER_ID}`));
-  };
-
-  const getStatusDisplay = () => {
-    if (!vehicle) return null;
-    if (vehicle.status === 'driving' || vehicle.status === 'RESERVED') return 'Navigating to Station';
-    if (vehicle.status === 'waiting') return 'Arrived! Waiting in Queue';
-    if (vehicle.status === 'OCCUPIED') return 'Charging...';
-    if (vehicle.status === 'stranded') return 'Battery Depleted. Assistance needed.';
-    return vehicle.status;
-  };
 
   return (
-    <div className="flex flex-col h-full bg-dark-900 text-white font-sans selection:bg-purple-500/30 w-full relative">
-      {/* Header */}
-      <div className="px-6 py-6 pb-4 border-b border-white/5 flex items-center justify-between z-10 shrink-0">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">EV Connect</h1>
-          <p className="text-xs text-gray-400 font-medium">Smart Allocation</p>
+    <div className="h-screen w-full bg-[#09080e] text-white font-sans flex flex-col overflow-hidden box-border">
+      {/* Top Navbar */}
+      <nav className="shrink-0 flex items-center justify-between px-3 py-2 bg-[#110f18] border-b border-[#2a2638] z-50">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="w-7 h-7 shrink-0 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <Zap size={14} className="text-white" fill="currentColor" />
+          </div>
+          <span className="text-base font-bold tracking-wide">ELECTRA</span>
         </div>
-        <div className="h-10 w-10 bg-gradient-to-tr from-purple-600 to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/20">
-          <Zap size={20} className="text-white drop-shadow-sm" />
+
+        {/* Tabs */}
+        <div className="flex items-center bg-[#1a1723] rounded-xl p-0.5 border border-[#2a2638] shrink-0 ml-2">
+          <button 
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+              activeTab === 'dashboard' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'
+            }`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            <Monitor size={12} />
+            <span>Dashboard</span>
+          </button>
+          <button 
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+              activeTab === 'station' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'
+            }`}
+            onClick={() => setActiveTab('station')}
+          >
+            <MapIcon size={14} />
+            Station
+          </button>
         </div>
-      </div>
+      </nav>
 
-      <div className="flex-1 relative overflow-hidden flex flex-col px-6">
-        <AnimatePresence mode="wait">
-          {!vehicle ? (
-            <motion.div 
-              key="idle"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="flex flex-col flex-1 h-full pt-8 pb-4"
-            >
-              <h2 className="text-2xl font-bold mb-2">Ready to Charge?</h2>
-              <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                Let the orchestrator assign you the mathematically best station, or override it and pick your own.
-              </p>
-              
-              <button
-                onClick={() => requestCharge(false, '')}
-                className="w-full relative group overflow-hidden bg-white text-black py-4 rounded-xl font-semibold shadow-xl shadow-white/10 transition-all hover:scale-[1.02] active:scale-95 shrink-0"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <span className="relative flex items-center justify-center gap-2">
-                  <Navigation size={18} />
-                  Auto-Route (Best ETA)
-                </span>
-              </button>
+      {/* Main Content Area */}
+      <div className="flex-1 relative min-h-0">
+        {activeTab === 'dashboard' ? (
+          // Dashboard Tab - EV Car full screen, stations revealed on scroll up
+          <div className="absolute inset-0 bg-[#110f18] overflow-y-auto scroll-smooth" style={{scrollSnapType: 'y proximity'}}>
+            {/* ── SECTION 1: EV Car (full screen, snap) ── */}
+            <div className="min-h-full flex flex-col p-5 relative" style={{scrollSnapAlign: 'start'}}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none -mr-10 -mt-10"></div>
 
-              <div className="flex items-center gap-4 mt-8 mb-4 opacity-50 shrink-0">
-                <div className="flex-1 h-px bg-white/20"></div>
-                <div className="text-xs font-bold uppercase tracking-widest text-white">Smart AI Override</div>
-                <div className="flex-1 h-px bg-white/20"></div>
-              </div>
-
-              {/* Gemini Smart Router */}
-              <form onSubmit={handleAiRoute} className="relative mb-6 shrink-0">
-                <div className="relative flex items-center bg-white/5 border border-white/10 rounded-xl overflow-hidden shadow-inner focus-within:border-purple-500/50 transition-colors">
-                  <div className="pl-4 text-purple-400">
-                    <Sparkles size={18} />
+              <div className="flex items-center justify-between mb-8 z-10 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-[#1a1723] flex items-center justify-center text-gray-300">
+                    <Car size={16} />
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Or tell AI: 'I'm in a rush!'"
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    disabled={isLoading}
-                    className="w-full bg-transparent text-sm text-gray-200 py-4 px-3 focus:outline-none placeholder:text-gray-500 disabled:opacity-50"
+                  <h2 className="text-lg font-semibold">EV Cars</h2>
+                </div>
+                <div className="flex items-center bg-[#1a1723] px-3 py-1 rounded-full border border-[#2a2638]">
+                  <input 
+                    type="text" 
+                    defaultValue="Tesla M-3" 
+                    className="bg-transparent text-sm text-gray-400 hover:text-white focus:outline-none w-24 text-right"
                   />
-                  <button 
-                    type="submit"
-                    disabled={!aiPrompt.trim() || isLoading}
-                    className="px-4 py-2 mr-2 bg-purple-600/20 text-purple-300 rounded-lg hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-50 text-sm font-bold flex items-center gap-2"
-                  >
-                    {isLoading ? <Loader2 size={16} className="animate-spin" /> : "Route"}
-                  </button>
                 </div>
-              </form>
-
-              <div className="flex items-center gap-4 mb-4 opacity-50 shrink-0">
-                <div className="flex-1 h-px bg-white/20"></div>
-                <div className="text-xs font-bold uppercase tracking-widest text-white">Manual Override</div>
-                <div className="flex-1 h-px bg-white/20"></div>
               </div>
 
-              {/* Station Selection List */}
-              <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pb-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
-                {Object.entries(stations).map(([id, st]) => (
-                  <button 
-                    key={id} 
-                    onClick={() => requestCharge(true, id)}
-                    className="flex items-center justify-between w-full p-4 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 active:scale-[0.98] transition-all text-left group"
-                  >
-                    <div>
-                      <div className="font-semibold text-gray-100">{st.name}</div>
-                      <div className="flex items-center gap-3 mt-1.5 opacity-80">
-                        <span className="flex items-center gap-1 text-xs font-medium text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-md">
-                          <Car size={12} />
-                          {st.queueLength || 0} in queue
-                        </span>
-                        <span className="text-[11px] text-gray-400">
-                          {st.availableChargers}/{st.totalChargers} Plugs Open
-                        </span>
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                      <ChevronRight size={16} className="text-gray-400 group-hover:text-white" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="active"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col h-full py-8"
-            >
-              <div className="flex-1 flex flex-col pt-4">
+              <div className="flex flex-col items-center justify-center w-full z-10 py-4">
+              {/* Glowing conceptual car representation - VERTICAL */}
+              <div className="relative w-[150px] h-[380px] mb-8 flex items-center justify-center">
+                <div className="absolute inset-0 bg-cyan-500/10 blur-[80px] rounded-[50%] w-full h-[80%] mx-auto"></div>
                 
-                {/* Main Visualizer */}
-                <div className="relative w-48 h-48 mx-auto mb-10 flex flex-col items-center justify-center">
-                  <svg className="absolute inset-0 w-full h-full -rotate-90">
-                    <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-white/5" />
-                    <circle 
-                      cx="96" cy="96" r="88" 
-                      stroke="currentColor" 
-                      strokeWidth="4" 
-                      fill="transparent" 
-                      strokeDasharray="552.9" 
-                      strokeDashoffset={552.9 - (552.9 * vehicle.batteryLevel) / 100}
-                      className="text-purple-500 transition-all duration-1000 ease-out" 
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                {/* Top View Car Wireframe Base */}
+                <div className="relative w-full h-full border-2 border-cyan-400/40 rounded-[5rem] shadow-[0_0_50px_rgba(34,211,238,0.15)] bg-gradient-to-b from-[#161b28] to-[#0c0f16] flex items-center justify-center isolate">
                   
-                  <div className="flex flex-col items-center">
-                    <span className="text-5xl font-bold tracking-tighter tabular-nums drop-shadow-md">
-                      {Math.round(vehicle.batteryLevel)}<span className="text-2xl text-gray-400 ml-1">%</span>
-                    </span>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-purple-400 mt-2">
-                      Battery
-                    </span>
-                  </div>
+                  {/* Inner Shell / Battery Area */}
+                  <div className="w-[86px] h-[86%] border-2 border-cyan-400/60 rounded-[4rem] shadow-inner shadow-cyan-400/30 relative flex flex-col items-center justify-center overflow-hidden bg-[#0d141f]">
+                    
+                    {/* Battery Fill visualizer */}
+                    <div 
+                      className="absolute bottom-0 w-full bg-gradient-to-t from-cyan-600/40 to-cyan-400/10 transition-all duration-1000 ease-in-out border-t border-cyan-400/50" 
+                      style={{ height: `${batteryLevel}%` }}
+                    ></div>
 
-                  {vehicle.status === 'OCCUPIED' && (
-                    <motion.div 
-                      initial={{ scale: 0 }} 
-                      animate={{ scale: 1 }} 
-                      className="absolute -bottom-2 bg-gradient-to-r from-green-500 to-emerald-400 text-white rounded-full p-2 shadow-lg shadow-green-500/30"
-                    >
-                      <BatteryCharging size={20} />
-                    </motion.div>
-                  )}
-                </div>
+                    {/* Glowing charging effect lines - Vertical */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
+                      <line x1="50%" y1="0" x2="50%" y2="100%" stroke="#22d3ee" strokeWidth="2" strokeDasharray="6 8" className="opacity-20" />
+                    </svg>
 
-                {/* Info Card */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-4 backdrop-blur-xl">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-white/10 p-2 rounded-lg">
-                      <MapPin size={18} className="text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Destination</p>
-                      <p className="font-semibold text-lg flex items-center gap-2">
-                        {stationName || 'Routing...'}
-                        {vehicle.isManualSelection && (
-                          <span className="text-[10px] bg-red-500/20 text-red-300 font-bold px-1.5 py-0.5 rounded shadow-sm">
-                            Locked
-                          </span>
-                        )}
-                      </p>
+                    {/* Center % text straight */}
+                    <div className="text-cyan-50 font-bold text-5xl font-mono drop-shadow-[0_0_15px_rgba(34,211,238,1)] z-20 flex  items-center mt-2">
+                      {Math.round(batteryLevel)}<span className="text-4xl text-cyan-300/80 ">%</span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10 relative">
-                    <div>
-                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Status</p>
-                      <p className="font-medium text-sm text-purple-300">{getStatusDisplay()}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Time to Target</p>
-                      <p className="font-bold text-lg tabular-nums">
-                        {vehicle.etaMinutes > 0 ? `${Math.ceil(vehicle.etaMinutes)} min` : 'Arrived'}
-                      </p>
-                    </div>
-                  </div>
+                  {/* Wheels */}
+                  <div className="absolute top-[18%] -left-[14px] w-[14px] h-[16%] bg-[#080b12] rounded-l-md border-y-2 border-l-2 border-cyan-500/70 shadow-[0_0_10px_rgba(34,211,238,0.4)] z-[-1]"></div>
+                  <div className="absolute bottom-[18%] -left-[14px] w-[14px] h-[16%] bg-[#080b12] rounded-l-md border-y-2 border-l-2 border-cyan-500/70 shadow-[0_0_10px_rgba(34,211,238,0.4)] z-[-1]"></div>
+                  <div className="absolute top-[18%] -right-[14px] w-[14px] h-[16%] bg-[#080b12] rounded-r-md border-y-2 border-r-2 border-cyan-500/70 shadow-[0_0_10px_rgba(34,211,238,0.4)] z-[-1]"></div>
+                  <div className="absolute bottom-[18%] -right-[14px] w-[14px] h-[16%] bg-[#080b12] rounded-r-md border-y-2 border-r-2 border-cyan-500/70 shadow-[0_0_10px_rgba(34,211,238,0.4)] z-[-1]"></div>
                   
-                  {/* Queue Metrics */}
-                  <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Station Queue</p>
-                      <p className="font-bold text-sm text-amber-300 flex items-center gap-1.5">
-                         <Hash size={14} />
-                         {vehicle.targetStationId && stations[vehicle.targetStationId] ? stations[vehicle.targetStationId].queueLength || 0 : 0} vehicles waiting
-                      </p>
-                    </div>
-                    {vehicle.queuePriorityScore !== undefined && (
-                      <div className="text-right">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Your Priority</p>
-                        <p className="font-bold text-sm text-emerald-400">{vehicle.queuePriorityScore}</p>
-                      </div>
-                    )}
-                  </div>
+                  {/* Front/Rear bumpers glow accents */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[60px] h-[4px] bg-cyan-400/50 blur-[2px] rounded-full"></div>
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60px] h-[4px] bg-red-500/40 blur-[2px] rounded-full"></div>
                 </div>
-
-                {aiReason && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="w-full mb-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-sm text-purple-200 flex items-start gap-3"
-                  >
-                    <Sparkles size={18} className="shrink-0 mt-0.5 text-purple-400" />
-                    <p className="leading-relaxed"><strong>Gemini:</strong> {aiReason}</p>
-                  </motion.div>
-                )}
-
-                {vehicle.status === 'OCCUPIED' && vehicle.batteryLevel >= 100 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-green-500/20 border border-green-500/30 rounded-2xl p-4 flex flex-col items-center justify-center text-center mb-4 shrink-0"
-                  >
-                    <CheckCircle2 size={28} className="text-green-400 mb-2" />
-                    <p className="font-semibold text-green-100">Charge Complete!</p>
-                    <p className="text-xs text-green-300/80 mt-1">Ready to disconnect & depart.</p>
-                  </motion.div>
-                )}
-
               </div>
 
-              <button
-                onClick={cancelCharge}
-                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white py-4 rounded-xl font-semibold transition-all hover:border-red-500/30 hover:text-red-400 shrink-0"
+              <div className="grid grid-cols-3 w-full gap-4 pt-5 border-t border-[#2a2638] shrink-0">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-white mb-1">{myVehicle?.etaMinutes ? Math.ceil(myVehicle.etaMinutes) : 0} min</div>
+                  <div className="text-xs text-gray-500">ETA</div>
+                </div>
+                <div className="text-center border-l border-[#2a2638]">
+                  <div className="text-xl font-bold text-white mb-1 truncate px-2" title={targetStation}>{targetStation}</div>
+                  <div className="text-xs text-gray-500">Station</div>
+                </div>
+                <div className="text-center border-l border-[#2a2638]">
+                  <div className="text-xl font-bold text-white mb-1">$18 <span className="text-[10px] font-normal text-gray-400">USD</span></div>
+                  <div className="text-xs text-gray-500">Cost/kW</div>
+                </div>
+              </div>
+                {/* Scroll hint */}
+                <div className="w-full flex flex-col items-center pt-4 pb-2 shrink-0 animate-bounce">
+                  <span className="text-[10px] text-gray-600 uppercase tracking-widest mb-1">scroll for stations</span>
+                  <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><path d="M1 1L8 8L15 1" stroke="#4b5563" strokeWidth="2" strokeLinecap="round"/></svg>
+                </div>
+              </div>{/* end section 1 */}
+
+            {/* ── SECTION 2: Nearby Stations (below fold) ── */}
+              {nearbyStations.length > 0 && (
+                <div className="shrink-0 pt-5 pb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Navigation size={14} className="text-purple-400" />
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Nearby Stations</h3>
+                    <div className="flex-1 h-px bg-[#2a2638] ml-1"></div>
+                  </div>
+                  <div className="flex flex-col gap-2.5">
+                    {nearbyStations.map(({ id, st, distKm }, idx) => (
+                      <div key={id} className="flex items-center justify-between bg-[#1a1723] border border-[#2a2638] rounded-xl px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border ${
+                            idx === 0 ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' :
+                            idx === 1 ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' :
+                            'bg-pink-500/20 border-pink-500/40 text-pink-300'
+                          }`}>{idx + 1}</div>
+                          <div>
+                            <div className="text-sm font-semibold text-gray-100 leading-tight">{st.name}</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-amber-400 font-medium">{st.queueLength ?? 0} waiting</span>
+                              <span className="text-[10px] text-gray-500">·</span>
+                              <span className="text-[10px] text-green-400 font-medium">{st.availableChargers}/{st.totalChargers} plugs</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-xs font-bold text-white">{distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(1)}km`}</span>
+                          <span className="text-[9px] text-gray-500">away</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>{/* end section 2 / outer scroll container */}
+          </div>
+        ) : (
+          // Station Tab - Map full screen, Bottom Sheet
+          <div className="relative w-full h-full overflow-hidden">
+            {/* Map fills entire screen */}
+            <div className="absolute inset-0 z-0">
+              <LiveMap />
+            </div>
+            
+            {/* Map Context Overlay */}
+            <div className="absolute left-4 top-4 z-20 pointer-events-none">
+              <div className="bg-[#110f18]/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-[#2a2638] flex items-center gap-2 shadow-lg">
+                <div className="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></div>
+                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Routing Active</span>
+              </div>
+            </div>
+
+            {/* Bottom Sheet - Draggable */}
+            <div
+              className="absolute bottom-0 left-0 right-0 bg-[#110f18] rounded-t-3xl border-t border-[#2a2638] overflow-hidden flex flex-col shadow-[0_-15px_50px_rgba(0,0,0,0.7)] z-10 transition-[height] duration-150 ease-out"
+              style={{ height: `${sheetHeight}%` }}
+            >
+              {/* Mobile Drag Handle - touch/mouse events here */}
+              <div
+                className="w-full flex flex-col items-center pt-2.5 pb-2 shrink-0 bg-[#1a1723] cursor-grab active:cursor-grabbing select-none touch-none"
+                onMouseDown={(e) => onDragStart(e.clientY)}
+                onMouseMove={(e) => { if (dragStartY.current !== null) onDragMove(e.clientY); }}
+                onMouseUp={onDragEnd}
+                onMouseLeave={onDragEnd}
+                onTouchStart={(e) => onDragStart(e.touches[0].clientY)}
+                onTouchMove={(e) => onDragMove(e.touches[0].clientY)}
+                onTouchEnd={onDragEnd}
               >
-                End Session
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <div className="w-12 h-1.5 bg-[#3a3550] rounded-full mb-1"></div>
+                <span className="text-[9px] text-gray-600 uppercase tracking-widest">drag to resize</span>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <StationPanel />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

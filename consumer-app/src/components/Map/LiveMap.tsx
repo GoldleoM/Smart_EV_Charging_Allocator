@@ -27,9 +27,10 @@ export function LiveMap() {
           update(ref(db, `vehicles/manual_user_999`), { location: loc }).catch(console.error);
         },
         (err) => {
-          console.warn("Geolocation error/blocked. Using fallback location (NYC).", err);
-          // Hackathon Demo Fallback: Times Square, NYC
-          const fallbackLoc = { lat: 40.7583, lng: -73.9820 };
+          // Suppressed console.warn to keep the console clean during demos.
+          // Geolocation is blocked by the browser, so we silently use the NYC fallback.
+          // Hackathon Demo Fallback: Connaught Place, New Delhi
+          const fallbackLoc = { lat: 28.6139, lng: 77.2090 };
           setDeviceLoc(fallbackLoc);
           update(ref(db, `vehicles/manual_user_999`), { location: fallbackLoc }).catch(console.error);
         },
@@ -48,7 +49,7 @@ export function LiveMap() {
       <APIProvider apiKey={apiKey}>
         <Map
           style={{ width: '100%', height: '100%' }}
-          defaultCenter={{ lat: 40.75, lng: -73.98 }}
+          defaultCenter={{ lat: 28.61, lng: 77.21 }}
           defaultZoom={12}
           mapId={mapId}
           disableDefaultUI={true}
@@ -69,9 +70,9 @@ export function LiveMap() {
           {activeOrigin && (
             <AdvancedMarker position={activeOrigin}>
               <div className="flex flex-col items-center">
-                <div className="text-[10px] font-bold text-white bg-blue-600 px-1.5 py-0.5 rounded shadow-lg mb-1 whitespace-nowrap border border-blue-400">YOU</div>
-                <div className="w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-pulse flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                <div className="text-[11px] font-black text-black bg-yellow-400 px-2 py-0.5 rounded-full shadow-lg mb-1.5 whitespace-nowrap border-2 border-yellow-200 tracking-widest">YOU</div>
+                <div className="w-8 h-8 bg-yellow-400 rounded-full border-2 border-yellow-200 shadow-[0_0_24px_rgba(250,204,21,0.9)] animate-pulse flex items-center justify-center">
+                  <div className="w-3 h-3 bg-white rounded-full shadow-inner"></div>
                 </div>
               </div>
             </AdvancedMarker>

@@ -51,6 +51,9 @@ async function runSimulator(): Promise<void> {
         if (vehicleId === "undefined" || !vehicle) continue;
         vehicle.id = vehicleId; // Guarantee the ID is present
 
+        // Guard: skip vehicles with missing batteryLevel to prevent undefined writes to Firebase
+        if (vehicle.batteryLevel === undefined || vehicle.batteryLevel === null) continue;
+
         // --- 1. Driving Physics ---
         if (vehicle.status === "driving" || vehicle.status === "RESERVED" || vehicle.status === "stranded") {
           let nextBattery = vehicle.batteryLevel;
