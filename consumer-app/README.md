@@ -1,73 +1,62 @@
-# React + TypeScript + Vite
+# Smart EV Charging + Parking Orchestrator - Consumer App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the consumer-facing frontend application for the Smart EV Charging + Parking Orchestrator, built with React, TypeScript, Vite, and Tailwind CSS.
 
-Currently, two official plugins are available:
+## 🚀 Features Implemented So Far
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### 1. Modern Dashboard & UI
+- **Dark Theme Aesthetics:** A premium, dark-themed interface with neon accents inspired by modern vehicle HUDs.
+- **Dual-Pane Station Management:** 
+  - **Left Panel:** Station selection and navigation controls.
+  - **Right Panel:** Real-time metrics including battery status, estimated arrival time, and queue length for the selected station.
 
-## React Compiler
+### 2. Map & Route Visualization
+- **Live Tracking:** Real-time tracking of the user's location with a persistent "YOU" marker on the map.
+- **Route Rendering:** Visualizes the route to the selected charging station using the Google Maps API.
+- **Session Management:** Seamlessly cleans up route lines while maintaining the user location marker upon session termination.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 3. Real-Time Synchronization
+- **Firebase Integration:** Real-time data synchronization with the backend via Firebase to keep station queues, battery status, and user location up to date instantly.
 
-## Expanding the ESLint configuration
+### 🤖 AI-Powered Station Recommendation (AI Mode)
+The application features an intelligent **AI Mode** designed to optimize the EV charging experience. Instead of manually picking a station, the AI automatically evaluates and recommends the *best* station for the user based on multiple real-time constraints:
+- **Distance:** Minimizing travel time to the station.
+- **Queue Length:** Avoiding stations with high wait times.
+- **Charging Needs:** Factoring in the user's current battery level and the station's charging speed.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+By comprehensively analyzing these metrics simultaneously, the AI ensures users are directed to the most efficient charging slot available.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🛠️ Tech Stack
+- **Frontend Framework:** React + TypeScript + Vite
+- **Styling:** Tailwind CSS + Lucide React (Icons)
+- **Maps & Routing:** Google Maps API (`@react-google-maps/api`)
+- **Real-Time Data:** Firebase Realtime Database
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## ⚙️ Getting Started
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Prerequisites
+- Node.js (v18 or higher recommended)
+- Firebase Project configured
+- Google Maps API Key
+
+### Installation
+
+1. Install dependencies:
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. Set up environment variables:
+Create a `.env` file in the root of the `consumer-app` directory and add your keys (e.g., Firebase config, Google Maps API key):
+```env
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+VITE_FIREBASE_API_KEY=your_firebase_api_key
+# ... other firebase config
 ```
+
+3. Start the development server:
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:5173/`.

@@ -70,9 +70,13 @@ export function Dashboard() {
                 </div>
                 <h2 className="text-lg font-semibold">EV Cars</h2>
               </div>
-              <button className="text-sm text-gray-400 flex items-center gap-1 hover:text-white bg-[#1a1723] px-3 py-1.5 rounded-full border border-[#2a2638]">
-                Tesla M-3 <ChevronDown size={14} />
-              </button>
+              <div className="flex items-center bg-[#1a1723] px-3 py-1 rounded-full border border-[#2a2638] focus-within:border-cyan-500/50 transition-colors">
+                <input 
+                  type="text" 
+                  defaultValue="Tesla M-3" 
+                  className="bg-transparent text-sm text-gray-400 hover:text-white focus:text-white focus:outline-none w-24 text-right"
+                />
+              </div>
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center relative my-4 w-full z-10 transition-all">
@@ -158,20 +162,7 @@ export function Dashboard() {
                    <LiveMap />
                 </div>
                 
-                {/* Map Controls */}
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
-                  <button className="w-8 h-8 rounded-full bg-[#110f18]/80 border border-[#2a2638] flex items-center justify-center text-gray-300 hover:text-white hover:border-purple-500 transition-colors backdrop-blur-sm">
-                    <MapPin size={14} />
-                  </button>
-                  <button className="w-8 h-8 rounded-full bg-[#110f18]/80 border border-[#2a2638] flex items-center justify-center text-gray-300 hover:text-white hover:border-purple-500 transition-colors backdrop-blur-sm">
-                    <Navigation size={14} />
-                  </button>
-                  <div className="w-8 flex flex-col items-center bg-[#110f18]/80 border border-[#2a2638] rounded-full backdrop-blur-sm mt-2">
-                    <button className="w-full h-8 flex items-center justify-center text-gray-300 hover:text-white">+</button>
-                    <div className="w-4 h-[1px] bg-[#2a2638]"></div>
-                    <button className="w-full h-8 flex items-center justify-center text-gray-300 hover:text-white">-</button>
-                  </div>
-                </div>
+                
 
                 {/* Bottom Bar Info overlay */}
                 <div className="w-full h-16 bg-gradient-to-t from-[#110f18] to-transparent z-10 flex items-end px-6 pb-4 justify-between pointer-events-none">
@@ -202,10 +193,9 @@ export function Dashboard() {
               </div>
 
               <div className="grid grid-cols-12 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-4 shrink-0">
-                <div className="col-span-4">Location</div>
-                <div className="col-span-3">Ports</div>
+                <div className="col-span-5">Location</div>
+                <div className="col-span-4">Ports</div>
                 <div className="col-span-3">Time</div>
-                <div className="col-span-2 text-right pr-4">Book</div>
               </div>
 
               <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-2 custom-scrollbar">
@@ -214,7 +204,7 @@ export function Dashboard() {
                     key={station.name || i} 
                     className={`grid grid-cols-12 items-center p-3 rounded-xl transition-all hover:bg-[#1a1723] border ${station.availableParking === 0 ? 'bg-red-900/20 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'bg-transparent border-transparent'}`}
                   >
-                    <div className="col-span-4 flex items-center gap-3">
+                    <div className="col-span-5 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full overflow-hidden border border-[#2a2638] shrink-0 bg-dark-800 flex items-center justify-center">
                         <MapIcon size={20} className="text-gray-400" />
                       </div>
@@ -224,7 +214,7 @@ export function Dashboard() {
                       </div>
                     </div>
                     
-                    <div className="col-span-3 flex flex-col justify-center">
+                    <div className="col-span-4 flex flex-col justify-center">
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${station.availableChargers > 0 ? 'bg-purple-500/20 text-purple-400' : 'bg-red-500/20 text-red-400'}`}>
                           {station.availableChargers}
@@ -238,12 +228,6 @@ export function Dashboard() {
 
                     <div className="col-span-3 flex flex-col justify-center text-xs text-gray-400 gap-1">
                       <div className="flex items-center gap-1"><Car size={12} /> {station.availableParking} / {station.totalParking} Parking</div>
-                    </div>
-
-                    <div className="col-span-2 flex justify-end pr-2">
-                      <button className="px-4 py-1.5 rounded-full border border-purple-500/50 text-purple-400 text-xs font-semibold hover:bg-purple-500 hover:text-white transition-all shadow-[0_0_10px_rgba(168,85,247,0.2)]">
-                        Book Now
-                      </button>
                     </div>
                   </div>
                 ))}

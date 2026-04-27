@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ref, onValue, set, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
-import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRight, Hash } from 'lucide-react';
+import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRight, Hash, Sparkles, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStationRecommendation } from '../hooks/useStationRecommendation';
 
 const USER_ID = 'manual_user_999';
 
@@ -30,6 +31,26 @@ export function MobileView() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [stations, setStations] = useState<Record<string, Station>>({});
   const [stationName, setStationName] = useState<string>('');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiReason, setAiReason] = useState('');
+  const { getRecommendations, isLoading } = useStationRecommendation();
+
+  const handleAiRoute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiPrompt.trim() || isLoading) return;
+    setAiReason('');
+    
+    const decision = await getRecommendations(aiPrompt);
+    
+    if (decision && decision.recommendations.length > 0) {
+      const best = decision.recommendations[0];
+      setAiReason(best.explanation || "This is the best route.");
+      requestCharge(true, best.station_id, 'RESERVED');
+    } else {
+      setAiReason("Sorry, I couldn't understand that request. Try picking manually!");
+    }
+    setAiPrompt('');
+  };
 
   useEffect(() => {
     const vehicleRef = ref(db, `vehicles/${USER_ID}`);
@@ -53,14 +74,14 @@ export function MobileView() {
     }
   }, [vehicle?.targetStationId, stations]);
 
-  const requestCharge = (isManual: boolean, targetId: string) => {
+  const requestCharge = (isManual: boolean, targetId: string, initialStatus: string = 'driving') => {
     const baseLat = 40.7128; // New York base
     const baseLng = -74.0060;
     
     set(ref(db, `vehicles/${USER_ID}`), {
       id: USER_ID,
       batteryLevel: 15,
-      status: 'driving',
+      status: initialStatus,
       targetStationId: targetId,
       etaMinutes: 10,
       isManualSelection: isManual,
@@ -124,6 +145,36 @@ export function MobileView() {
               </button>
 
               <div className="flex items-center gap-4 mt-8 mb-4 opacity-50 shrink-0">
+                <div className="flex-1 h-px bg-white/20"></div>
+                <div className="text-xs font-bold uppercase tracking-widest text-white">Smart AI Override</div>
+                <div className="flex-1 h-px bg-white/20"></div>
+              </div>
+
+              {/* Gemini Smart Router */}
+              <form onSubmit={handleAiRoute} className="relative mb-6 shrink-0">
+                <div className="relative flex items-center bg-white/5 border border-white/10 rounded-xl overflow-hidden shadow-inner focus-within:border-purple-500/50 transition-colors">
+                  <div className="pl-4 text-purple-400">
+                    <Sparkles size={18} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Or tell AI: 'I'm in a rush!'"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    disabled={isLoading}
+                    className="w-full bg-transparent text-sm text-gray-200 py-4 px-3 focus:outline-none placeholder:text-gray-500 disabled:opacity-50"
+                  />
+                  <button 
+                    type="submit"
+                    disabled={!aiPrompt.trim() || isLoading}
+                    className="px-4 py-2 mr-2 bg-purple-600/20 text-purple-300 rounded-lg hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-50 text-sm font-bold flex items-center gap-2"
+                  >
+                    {isLoading ? <Loader2 size={16} className="animate-spin" /> : "Route"}
+                  </button>
+                </div>
+              </form>
+
+              <div className="flex items-center gap-4 mb-4 opacity-50 shrink-0">
                 <div className="flex-1 h-px bg-white/20"></div>
                 <div className="text-xs font-bold uppercase tracking-widest text-white">Manual Override</div>
                 <div className="flex-1 h-px bg-white/20"></div>
@@ -250,6 +301,17 @@ export function MobileView() {
                     )}
                   </div>
                 </div>
+
+                {aiReason && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="w-full mb-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-sm text-purple-200 flex items-start gap-3"
+                  >
+                    <Sparkles size={18} className="shrink-0 mt-0.5 text-purple-400" />
+                    <p className="leading-relaxed"><strong>Gemini:</strong> {aiReason}</p>
+                  </motion.div>
+                )}
 
                 {vehicle.status === 'OCCUPIED' && vehicle.batteryLevel >= 100 && (
                   <motion.div 

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ref, set, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
-import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRight, Hash, Search } from 'lucide-react';
+import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRight, Hash, Search, Sparkles, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimulationState } from '../hooks/useSimulationState';
+import { useStationRecommendation } from '../hooks/useStationRecommendation';
 
 const USER_ID = 'manual_user_999';
 
@@ -12,23 +13,45 @@ export function StationPanel() {
   const vehicle = state.vehicles[USER_ID];
   const stations = state.stations;
   const [searchTerm, setSearchTerm] = useState('');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiReason, setAiReason] = useState('');
+  const { getRecommendations, isLoading } = useStationRecommendation();
+
+  const [routingMode, setRoutingMode] = useState<'auto' | 'manual'>('auto');
+
+  const handleAiRoute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiPrompt.trim() || isLoading) return;
+    setAiReason('');
+    
+    const decision = await getRecommendations(aiPrompt);
+    
+    if (decision && decision.recommendations.length > 0) {
+      const best = decision.recommendations[0];
+      setAiReason(best.explanation || "This is the best route.");
+      requestCharge(true, best.station_id, 'RESERVED');
+    } else {
+      setAiReason("Sorry, I couldn't understand that request. Try picking manually!");
+    }
+    setAiPrompt('');
+  };
 
   const stationName = vehicle?.targetStationId ? stations[vehicle.targetStationId]?.name : '';
 
-  const requestCharge = (isManual: boolean, targetId: string) => {
+  const requestCharge = (isManual: boolean, targetId: string, initialStatus: string = 'RESERVED') => {
     const baseLat = 40.7128; // New York base
     const baseLng = -74.0060;
     
     set(ref(db, `vehicles/${USER_ID}`), {
       id: USER_ID,
       batteryLevel: 15, // Starting battery per demo
-      status: 'driving',
+      status: initialStatus,
       targetStationId: targetId,
       etaMinutes: 10,
       isManualSelection: isManual,
-      location: {
-        lat: baseLat + (Math.random() - 0.5) * 0.04,
-        lng: baseLng + (Math.random() - 0.5) * 0.04
+      location: vehicle?.location || {
+        lat: baseLat,
+        lng: baseLng
       }
     });
   };
@@ -81,65 +104,124 @@ export function StationPanel() {
                 Let the orchestrator assign you the mathematically best station, or override it and pick your own.
               </p>
               
-              <button
-                onClick={() => requestCharge(false, '')}
-                className="w-full relative group overflow-hidden bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-semibold shadow-[0_0_20px_rgba(236,72,153,0.3)] transition-all hover:scale-[1.02] active:scale-95 shrink-0"
-              >
-                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <span className="relative flex items-center justify-center gap-2">
-                  <Navigation size={18} />
-                  Auto-Route (Best ETA)
-                </span>
-              </button>
-
-              <div className="flex items-center gap-4 mt-8 mb-4 opacity-50 shrink-0">
-                <div className="flex-1 h-px bg-[#2a2638]"></div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-300">Manual Override</div>
-                <div className="flex-1 h-px bg-[#2a2638]"></div>
+              <div className="flex bg-[#1a1723] p-1 rounded-xl border border-[#2a2638] mb-6 shrink-0">
+                <button
+                  onClick={() => setRoutingMode('auto')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                    routingMode === 'auto'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Sparkles size={16} /> Auto Route
+                </button>
+                <button
+                  onClick={() => setRoutingMode('manual')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                    routingMode === 'manual'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <MapPin size={16} /> Manual Pick
+                </button>
               </div>
 
-              {/* Search Bar */}
-              <div className="relative mb-4 shrink-0">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search size={14} className="text-gray-500" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search stations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#1a1723] text-sm text-gray-200 border border-[#2a2638] rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/50 transition-all placeholder:text-gray-600 shadow-inner"
-                />
-              </div>
-
-              {/* Station Selection List */}
-              <div className="flex flex-col gap-3 pb-4">
-                {Object.entries(stations)
-                  .filter(([_, st]) => st.name?.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map(([id, st]) => (
-                  <button 
-                    key={id} 
-                    onClick={() => requestCharge(true, id)}
-                    className="flex items-center justify-between w-full p-4 bg-[#1a1723] border border-[#2a2638] rounded-xl hover:border-pink-500/50 hover:bg-[#1a1723]/80 active:scale-[0.98] transition-all text-left group"
+              {routingMode === 'auto' ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col gap-6"
+                >
+                  <button
+                    onClick={() => requestCharge(false, '')}
+                    className="w-full relative group overflow-hidden bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-semibold shadow-[0_0_20px_rgba(236,72,153,0.3)] transition-all hover:scale-[1.02] active:scale-95 shrink-0"
                   >
-                    <div>
-                      <div className="font-semibold text-gray-200">{st.name}</div>
-                      <div className="flex items-center gap-3 mt-1.5 opacity-80">
-                        <span className="flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
-                          <Car size={12} />
-                          {st.queueLength || 0} in queue
-                        </span>
-                        <span className="text-[11px] text-gray-400 font-medium font-mono">
-                          {st.availableChargers}/{st.totalChargers} Plugs Open
-                        </span>
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-[#110f18] flex items-center justify-center border border-[#2a2638] group-hover:border-pink-500/50 transition-colors">
-                      <ChevronRight size={14} className="text-gray-400 group-hover:text-pink-400" />
-                    </div>
+                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="relative flex items-center justify-center gap-2">
+                      <Navigation size={18} />
+                      Auto-Route (Best ETA)
+                    </span>
                   </button>
-                ))}
-              </div>
+
+                  <div className="flex items-center gap-4 opacity-50 shrink-0">
+                    <div className="flex-1 h-px bg-[#2a2638]"></div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-300">Smart AI Override</div>
+                    <div className="flex-1 h-px bg-[#2a2638]"></div>
+                  </div>
+
+                  <form onSubmit={handleAiRoute} className="relative group shrink-0">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-xl group-hover:opacity-100 transition-opacity opacity-50 rounded-xl" />
+                    <div className="relative flex items-center bg-[#1a1723] border border-purple-500/30 rounded-xl overflow-hidden shadow-inner focus-within:border-pink-500/60 transition-colors">
+                      <div className="pl-4 text-purple-400">
+                        <Sparkles size={18} />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Or tell AI: 'I'm in a rush!'"
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        disabled={isLoading}
+                        className="flex-1 w-full min-w-0 bg-transparent text-sm text-gray-200 py-4 px-3 focus:outline-none placeholder:text-gray-500 disabled:opacity-50"
+                      />
+                      <button 
+                        type="submit"
+                        disabled={!aiPrompt.trim() || isLoading}
+                        className="px-4 py-2 mr-2 bg-purple-600/20 text-purple-300 rounded-lg hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-50 text-sm font-bold flex items-center gap-2"
+                      >
+                        {isLoading ? <Loader2 size={16} className="animate-spin" /> : "Route"}
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col flex-1 min-h-0"
+                >
+                  <div className="relative mb-4 shrink-0">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search size={14} className="text-gray-500" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search stations..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full bg-[#1a1723] text-sm text-gray-200 border border-[#2a2638] rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/50 transition-all placeholder:text-gray-600 shadow-inner"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-3 pb-4 overflow-y-auto custom-scrollbar">
+                    {Object.entries(stations)
+                      .filter(([_, st]) => st.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+                      .map(([id, st]) => (
+                      <button 
+                        key={id} 
+                        onClick={() => requestCharge(true, id)}
+                        className="flex items-center justify-between w-full p-4 bg-[#1a1723] border border-[#2a2638] rounded-xl hover:border-pink-500/50 hover:bg-[#1a1723]/80 active:scale-[0.98] transition-all text-left group shrink-0"
+                      >
+                        <div>
+                          <div className="font-semibold text-gray-200">{st.name}</div>
+                          <div className="flex items-center gap-3 mt-1.5 opacity-80">
+                            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                              <Car size={12} />
+                              {st.queueLength || 0} in queue
+                            </span>
+                            <span className="text-[11px] text-gray-400 font-medium font-mono">
+                              {st.availableChargers}/{st.totalChargers} Plugs Open
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-[#110f18] flex items-center justify-center border border-[#2a2638] group-hover:border-pink-500/50 transition-colors">
+                          <ChevronRight size={14} className="text-gray-400 group-hover:text-pink-400" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           ) : (
             <motion.div
@@ -242,6 +324,8 @@ export function StationPanel() {
                     ) : null}
                   </div>
                 </div>
+
+
 
                 {vehicle.status === 'OCCUPIED' && vehicle.batteryLevel >= 100 && (
                   <motion.div 

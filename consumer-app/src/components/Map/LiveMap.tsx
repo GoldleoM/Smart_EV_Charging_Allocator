@@ -26,7 +26,13 @@ export function LiveMap() {
           // Patch the actual real-time location to the backend database so the global simulation stays in sync!
           update(ref(db, `vehicles/manual_user_999`), { location: loc }).catch(console.error);
         },
-        (err) => console.log("Geolocation error:", err),
+        (err) => {
+          console.warn("Geolocation error/blocked. Using fallback location (NYC).", err);
+          // Hackathon Demo Fallback: Times Square, NYC
+          const fallbackLoc = { lat: 40.7583, lng: -73.9820 };
+          setDeviceLoc(fallbackLoc);
+          update(ref(db, `vehicles/manual_user_999`), { location: fallbackLoc }).catch(console.error);
+        },
         { enableHighAccuracy: true }
       );
     }
@@ -35,8 +41,7 @@ export function LiveMap() {
   const userVehicle = vehicles?.['manual_user_999'];
   const targetStation = userVehicle?.targetStationId ? stations?.[userVehicle.targetStationId] : null;
 
-  // Use device location if available, otherwise fallback to vehicle simulation location
-  const activeOrigin = deviceLoc || userVehicle?.location;
+  const activeOrigin = userVehicle?.location || deviceLoc;
 
   return (
     <div className="absolute inset-0 w-full h-full bg-dark-900 z-0">
