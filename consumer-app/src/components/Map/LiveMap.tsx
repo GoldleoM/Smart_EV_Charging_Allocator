@@ -21,7 +21,18 @@ export function LiveMap() {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          let loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          
+          // HACKATHON DEMO FIX:
+          // The allocator physics engine strictly calculates battery consumption based on distance.
+          // If the real user is in another country, distance is huge, and no station will be eligible,
+          // causing Auto-Route to silently fail. We clamp them to the New Delhi demo area if they are far away.
+          const dist = Math.sqrt(Math.pow(loc.lat - 28.6139, 2) + Math.pow(loc.lng - 77.2090, 2));
+          if (dist > 5) {
+            console.log("User is outside demo area, snapping to New Delhi for simulation.");
+            loc = { lat: 28.6139, lng: 77.2090 };
+          }
+
           setDeviceLoc(loc);
           // Patch the actual real-time location to the backend database so the global simulation stays in sync!
           update(ref(db, `vehicles/manual_user_999`), { location: loc }).catch(console.error);

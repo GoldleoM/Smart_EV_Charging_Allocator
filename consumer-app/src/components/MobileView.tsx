@@ -24,23 +24,22 @@ export function MobileView() {
   const userLat = myVehicle?.location?.lat ?? 28.6139;
   const userLng = myVehicle?.location?.lng ?? 77.2090;
 
-  // Nearby stations within 15km, sorted by distance, top 3
+  // All stations sorted by distance, top 5
   const nearbyStations = useMemo(() => {
     return Object.entries(state.stations || {})
       .map(([id, st]) => ({
         id, st,
         distKm: haversineKm(userLat, userLng, st.location?.lat ?? 0, st.location?.lng ?? 0)
       }))
-      .filter(({ distKm }) => distKm <= 15)
       .sort((a, b) => a.distKm - b.distKm)
-      .slice(0, 3);
+      .slice(0, 5);
   }, [state.stations, userLat, userLng]);
 
   // Bottom sheet drag state
-  const SNAP_POSITIONS = [25, 62, 90]; // % of screen height
-  const [sheetHeight, setSheetHeight] = useState(62);
+  const SNAP_POSITIONS = [30, 70, 92]; // % of screen height
+  const [sheetHeight, setSheetHeight] = useState(70);
   const dragStartY = useRef<number | null>(null);
-  const dragStartHeight = useRef<number>(62);
+  const dragStartHeight = useRef<number>(70);
 
   const onDragStart = useCallback((clientY: number) => {
     dragStartY.current = clientY;
@@ -103,8 +102,9 @@ export function MobileView() {
 
       {/* Main Content Area */}
       <div className="flex-1 relative min-h-0">
+
         {activeTab === 'dashboard' ? (
-          // Dashboard Tab - EV Car full screen, stations revealed on scroll up
+          // Dashboard Tab - EV Car full screen, Quick Trip Planner, Stations
           <div className="absolute inset-0 bg-[#110f18] overflow-y-auto scroll-smooth" style={{scrollSnapType: 'y proximity'}}>
             {/* ── SECTION 1: EV Car (full screen, snap) ── */}
             <div className="min-h-full flex flex-col p-5 relative" style={{scrollSnapAlign: 'start'}}>
@@ -188,78 +188,85 @@ export function MobileView() {
               </div>{/* end section 1 */}
 
             {/* ── SECTION 2: Nearby Stations (below fold) ── */}
-              {nearbyStations.length > 0 && (
-                <div className="shrink-0 pt-5 pb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Navigation size={14} className="text-purple-400" />
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Nearby Stations</h3>
-                    <div className="flex-1 h-px bg-[#2a2638] ml-1"></div>
-                  </div>
+              <div className="shrink-0 pt-5 pb-6 px-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <Navigation size={14} className="text-purple-400" />
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Stations</h3>
+                  <div className="flex-1 h-px bg-[#2a2638] ml-1"></div>
+                </div>
+                {nearbyStations.length === 0 ? (
+                  <div className="text-center text-gray-600 text-xs py-6">Loading stations...</div>
+                ) : (
                   <div className="flex flex-col gap-2.5">
                     {nearbyStations.map(({ id, st, distKm }, idx) => (
-                      <div key={id} className="flex items-center justify-between bg-[#1a1723] border border-[#2a2638] rounded-xl px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border ${
-                            idx === 0 ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' :
-                            idx === 1 ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' :
-                            'bg-pink-500/20 border-pink-500/40 text-pink-300'
-                          }`}>{idx + 1}</div>
-                          <div>
-                            <div className="text-sm font-semibold text-gray-100 leading-tight">{st.name}</div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-amber-400 font-medium">{st.queueLength ?? 0} waiting</span>
-                              <span className="text-[10px] text-gray-500">·</span>
-                              <span className="text-[10px] text-green-400 font-medium">{st.availableChargers}/{st.totalChargers} plugs</span>
-                            </div>
+                      <div key={id} className="flex items-center gap-3 bg-[#1a1723] border border-[#2a2638] rounded-xl px-4 py-3">
+                        {/* Rank badge */}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border shrink-0 ${
+                          idx === 0 ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' :
+                          idx === 1 ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' :
+                          idx === 2 ? 'bg-pink-500/20 border-pink-500/40 text-pink-300' :
+                          'bg-gray-700/40 border-gray-600/40 text-gray-400'
+                        }`}>{idx + 1}</div>
+
+                        {/* Station info — flex-1 + min-w-0 allows truncate to work */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-gray-100 leading-tight truncate">{st.name}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-amber-400 font-medium">{st.queueLength ?? 0} waiting</span>
+                            <span className="text-[10px] text-gray-500">·</span>
+                            <span className="text-[10px] text-green-400 font-medium">{st.availableChargers}/{st.totalChargers} plugs</span>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="text-xs font-bold text-white">{distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(1)}km`}</span>
+
+                        {/* Distance — always right-aligned, never shrinks */}
+                        <div className="flex flex-col items-end gap-0.5 shrink-0">
+                          <span className="text-xs font-bold text-white whitespace-nowrap">{distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(1)}km`}</span>
                           <span className="text-[9px] text-gray-500">away</span>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-            </div>{/* end section 2 / outer scroll container */}
+                )}
+              </div>
+            </div>{/* end outer scroll container */}
           </div>
         ) : (
           // Station Tab - Map full screen, Bottom Sheet
           <div className="relative w-full h-full overflow-hidden">
+            
             {/* Map fills entire screen */}
             <div className="absolute inset-0 z-0">
               <LiveMap />
             </div>
-            
-            {/* Map Context Overlay */}
-            <div className="absolute left-4 top-4 z-20 pointer-events-none">
+
+            {/* "Routing Active" badge */}
+            <div className="absolute left-4 top-4 pointer-events-none z-10">
               <div className="bg-[#110f18]/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-[#2a2638] flex items-center gap-2 shadow-lg">
                 <div className="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></div>
                 <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Routing Active</span>
               </div>
             </div>
 
-            {/* Bottom Sheet - Draggable */}
+            {/* Bottom Sheet */}
             <div
-              className="absolute bottom-0 left-0 right-0 bg-[#110f18] rounded-t-3xl border-t border-[#2a2638] overflow-hidden flex flex-col shadow-[0_-15px_50px_rgba(0,0,0,0.7)] z-10 transition-[height] duration-150 ease-out"
+              className="absolute bottom-0 left-0 right-0 pointer-events-auto bg-[#110f18] rounded-t-3xl border-t border-[#2a2638] overflow-hidden flex flex-col shadow-[0_-15px_50px_rgba(0,0,0,0.7)] transition-[height] duration-150 ease-out z-20"
               style={{ height: `${sheetHeight}%` }}
             >
-              {/* Mobile Drag Handle - touch/mouse events here */}
+              {/* Drag Handle - events scoped here only, NOT on the sheet root */}
               <div
                 className="w-full flex flex-col items-center pt-2.5 pb-2 shrink-0 bg-[#1a1723] cursor-grab active:cursor-grabbing select-none touch-none"
-                onMouseDown={(e) => onDragStart(e.clientY)}
-                onMouseMove={(e) => { if (dragStartY.current !== null) onDragMove(e.clientY); }}
-                onMouseUp={onDragEnd}
-                onMouseLeave={onDragEnd}
-                onTouchStart={(e) => onDragStart(e.touches[0].clientY)}
-                onTouchMove={(e) => onDragMove(e.touches[0].clientY)}
-                onTouchEnd={onDragEnd}
+                onPointerDown={(e) => {
+                  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                  onDragStart(e.clientY);
+                }}
+                onPointerMove={(e) => { if (dragStartY.current !== null) onDragMove(e.clientY); }}
+                onPointerUp={onDragEnd}
+                onPointerCancel={onDragEnd}
               >
                 <div className="w-12 h-1.5 bg-[#3a3550] rounded-full mb-1"></div>
                 <span className="text-[9px] text-gray-600 uppercase tracking-widest">drag to resize</span>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 <StationPanel />
               </div>
             </div>

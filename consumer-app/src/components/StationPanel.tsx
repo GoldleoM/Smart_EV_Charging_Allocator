@@ -89,7 +89,7 @@ export function StationPanel() {
         </div>
       </div>
 
-      <div className="flex-1 relative overflow-y-auto flex flex-col p-6 hide-scrollbar custom-scrollbar min-h-0">
+      <div className="flex-1 relative overflow-y-auto flex flex-col p-6 hide-scrollbar custom-scrollbar min-h-0 overscroll-contain" style={{touchAction: 'pan-y'}}>
         <AnimatePresence mode="wait">
           {(!vehicle || !vehicle.targetStationId) ? (
             <motion.div 
