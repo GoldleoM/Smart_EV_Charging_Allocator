@@ -15,7 +15,7 @@ export function LiveMap() {
     <div className="absolute inset-0 w-full h-full bg-dark-900 z-0">
       <APIProvider apiKey={apiKey}>
         <Map
-          defaultCenter={{ lat: 40.75, lng: -73.98 }}
+          defaultCenter={{ lat: 28.7, lng: 77.1 }}
           defaultZoom={12}
           mapId={mapId}
           disableDefaultUI={true}
