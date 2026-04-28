@@ -12,7 +12,7 @@ export function StationSummary() {
     <motion.div 
       initial={{ x: 50, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      className="glass-panel w-[320px] max-h-[500px] flex flex-col"
+      className="glass-panel w-[320px] max-h-[45vh] flex flex-col"
     >
       <div className="p-4 border-b border-white/10 sticky top-0 bg-dark-800/80 backdrop-blur-md rounded-t-2xl z-10">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-white/50">

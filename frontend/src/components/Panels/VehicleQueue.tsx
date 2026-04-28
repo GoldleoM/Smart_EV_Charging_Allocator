@@ -74,11 +74,11 @@ export function VehicleQueue() {
                   <div className="flex items-center gap-2 flex-1">
                     <div className="w-full h-1 bg-dark-900 rounded-full relative overflow-hidden">
                       <div 
-                        className={clsx("h-full absolute left-0", (v.batteryLevel ?? 100) < 20 ? "bg-red-500" : "bg-green-500")}
-                        style={{ width: `${v.batteryLevel ?? 100}%` }}
+                        className={clsx("h-full absolute left-0", v.batteryLevel < 20 ? "bg-red-500" : "bg-green-500")}
+                        style={{ width: `${v.batteryLevel}%` }}
                       />
                     </div>
-                    <span>{(v.batteryLevel ?? 0).toFixed(0)}%</span>
+                    <span>{v.batteryLevel.toFixed(0)}%</span>
                   </div>
                 </div>
               </div>

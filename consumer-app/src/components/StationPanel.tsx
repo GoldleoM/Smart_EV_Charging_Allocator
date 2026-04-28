@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ref, set, remove } from 'firebase/database';
+import { ref, set } from 'firebase/database';
 import { db } from '../lib/firebase';
 import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRight, Hash, Search, Sparkles, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,7 +39,7 @@ export function StationPanel() {
   const stationName = vehicle?.targetStationId ? stations[vehicle.targetStationId]?.name : '';
 
   const requestCharge = (isManual: boolean, targetId: string, initialStatus: string = 'RESERVED') => {
-    const baseLat = 28.6139; // New Delhi - Connaught Place
+    const baseLat = 28.6139; // Delhi base
     const baseLng = 77.2090;
     
     set(ref(db, `vehicles/${USER_ID}`), {
@@ -89,7 +89,7 @@ export function StationPanel() {
         </div>
       </div>
 
-      <div className="flex-1 relative overflow-y-auto flex flex-col p-6 hide-scrollbar custom-scrollbar min-h-0 overscroll-contain" style={{touchAction: 'pan-y'}}>
+      <div className="flex-1 relative overflow-y-auto flex flex-col p-6 hide-scrollbar custom-scrollbar min-h-0">
         <AnimatePresence mode="wait">
           {(!vehicle || !vehicle.targetStationId) ? (
             <motion.div 
@@ -326,8 +326,17 @@ export function StationPanel() {
                   </div>
                 </div>
 
-
-
+                {aiReason && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="w-full mb-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-sm text-purple-200 flex items-start gap-3"
+                  >
+                    <Sparkles size={18} className="shrink-0 mt-0.5 text-purple-400" />
+                    <p className="leading-relaxed"><strong>Gemini:</strong> {aiReason}</p>
+                  </motion.div>
+                )}
+                
                 {vehicle.status === 'OCCUPIED' && vehicle.batteryLevel >= 100 && (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }}

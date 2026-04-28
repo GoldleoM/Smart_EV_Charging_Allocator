@@ -51,7 +51,7 @@ export function VehicleMarker({ vehicle, targetStationName }: { vehicle: Vehicle
         <Car size={isManual ? 18 : 16} strokeWidth={isManual ? 2.5 : 2} />
         
         {/* Urgent Glow Context */}
-        {vehicle.batteryLevel <= 20 && vehicle.status !== 'stranded' && (
+        {vehicle.batteryLevel !== undefined && vehicle.batteryLevel <= 20 && vehicle.status !== 'stranded' && (
           <span className="absolute -inset-2 rounded-full border border-red-500/80 animate-[ping_2s_ease-out_infinite]" />
         )}
         {vehicle.isRerouted && (
@@ -64,7 +64,7 @@ export function VehicleMarker({ vehicle, targetStationName }: { vehicle: Vehicle
           <div className="font-mono text-xs font-bold text-white/90 capitalize">{(vehicle.id || "vehicle").replace('_', ' ')}</div>
           <div className="text-[10px] text-white/60">Dest: <span className="text-white/90 font-medium">{targetStationName}</span></div>
           <div className="text-[10px] text-white/60 flex items-center justify-between gap-3">
-            <span>Battery: <span className={clsx("font-mono font-bold", (vehicle.batteryLevel ?? 100) <= 20 ? "text-red-400" : "text-green-400")}>{(vehicle.batteryLevel ?? 0).toFixed(0)}%</span></span>
+            <span>Battery: <span className={clsx("font-mono font-bold", (vehicle.batteryLevel || 0) <= 20 ? "text-red-400" : "text-green-400")}>{(vehicle.batteryLevel || 0).toFixed(0)}%</span></span>
             <span>ETA: <span className="font-mono font-bold text-blue-400">{vehicle.etaMinutes}m</span></span>
           </div>
         </div>

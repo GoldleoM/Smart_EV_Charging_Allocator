@@ -74,8 +74,8 @@ async function runSimulator(): Promise<void> {
 
           if (vehicle.status === "RESERVED" || vehicle.status === "stranded") {
             if (vehicle.status === "RESERVED") {
-              // Speed up simulation for demo: Reduce ETA by 1.0 minutes per tick instead of 0.2
-              const speedFactor = 1.0;
+              // Physics engine natively ticks at 0.2 simulated minutes per 5s real-world tick.
+              const speedFactor = 0.2;
               vehicle.etaMinutes = Math.max(0, parseFloat((vehicle.etaMinutes - speedFactor).toFixed(2)));
 
               if (targetStation && targetStation.location && vehicle.location) {

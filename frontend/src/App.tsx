@@ -11,28 +11,22 @@ function App() {
       <LiveMap />
 
       {/* Interactive overlays container */}
-      <div className="absolute inset-0 z-10 pointer-events-none p-6 flex flex-col justify-between">
+      <div className="absolute inset-0 z-10 pointer-events-none">
         
-        {/* TOP ROW */}
-        <div className="flex justify-between items-start pointer-events-none w-full">
-          <div className="pointer-events-auto"><SystemOverview /></div>
-          <div className="pointer-events-auto"><StationSummary /></div>
+        {/* Left Column Stack */}
+        <div className="absolute top-6 bottom-28 left-6 pointer-events-auto flex flex-col gap-4 w-[350px]">
+          <SystemOverview />
+          <VehicleQueue />
+        </div>
+        
+        {/* Top Right Stack */}
+        <div className="absolute top-6 right-6 pointer-events-auto pb-20">
+          <StationSummary />
         </div>
 
-        {/* BOTTOM ROW */}
-        <div className="flex justify-between items-end">
-          <div className="pointer-events-auto">
-            <VehicleQueue />
-          </div>
-
-          {/* Centered Demo Bar */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-auto">
-            <DemoBar />
-          </div>
-          
-          <div className="w-[350px] opacity-0 pointer-events-none">
-            {/* Spacer to balance VehicleQueue on the left, keeping DemoBar perfectly centered */}
-          </div>
+        {/* Bottom Center (Demo Bar) */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-auto w-max max-w-[95vw]">
+          <DemoBar />
         </div>
         
       </div>
