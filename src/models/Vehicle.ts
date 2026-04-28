@@ -24,9 +24,9 @@ export async function generateVehicles(db: Database, count: number): Promise<voi
   const vehiclesData: VehiclesMap = {};
 
   const stationLocs: Record<string, { lat: number, lng: number }> = {
-    "station_1": { lat: 40.7128, lng: -74.0060 }, // Downtown
-    "station_2": { lat: 40.7580, lng: -73.9855 }, // Midtown
-    "station_3": { lat: 40.7851, lng: -73.9683 }  // Uptown
+    "station_1": { lat: 28.6304, lng: 77.2177 }, // Connaught Place
+    "station_2": { lat: 28.5677, lng: 77.2433 }, // Lajpat Nagar
+    "station_3": { lat: 28.5530, lng: 77.0588 }  // Dwarka
   };
 
   for (let i = 1; i <= count; i++) {

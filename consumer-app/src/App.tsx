@@ -1,12 +1,19 @@
+import { useState, useEffect } from 'react';
+import { Dashboard } from './components/Dashboard';
 import { MobileView } from './components/MobileView';
 
 function App() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
-    <div className="w-screen h-screen bg-black/90 flex justify-center items-center overflow-hidden font-sans">
-      {/* Mobile Simulator Container */}
-      <div className="w-full max-w-[400px] h-full sm:h-[85dvh] sm:rounded-3xl bg-dark-900 shadow-2xl relative overflow-hidden flex flex-col border sm:border-gray-800">
-        <MobileView />
-      </div>
+    <div className="w-screen h-screen bg-[#09080e] overflow-hidden font-sans">
+      {isMobile ? <MobileView /> : <Dashboard />}
     </div>
   );
 }

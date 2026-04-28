@@ -48,6 +48,12 @@ async function runSimulator(): Promise<void> {
       });
 
       for (const [vehicleId, vehicle] of sortedVehicles) {
+        if (vehicleId === "undefined" || !vehicle) continue;
+        vehicle.id = vehicleId; // Guarantee the ID is present
+
+        // Guard: skip vehicles with missing batteryLevel to prevent undefined writes to Firebase
+        if (vehicle.batteryLevel === undefined || vehicle.batteryLevel === null) continue;
+
         // --- 1. Driving Physics ---
         if (vehicle.status === "driving" || vehicle.status === "RESERVED" || vehicle.status === "stranded") {
           let nextBattery = vehicle.batteryLevel;
@@ -68,14 +74,16 @@ async function runSimulator(): Promise<void> {
 
           if (vehicle.status === "RESERVED" || vehicle.status === "stranded") {
             if (vehicle.status === "RESERVED") {
-              vehicle.etaMinutes = Math.max(0, parseFloat((vehicle.etaMinutes - 0.2).toFixed(2)));
+              // Speed up simulation for demo: Reduce ETA by 1.0 minutes per tick instead of 0.2
+              const speedFactor = 1.0;
+              vehicle.etaMinutes = Math.max(0, parseFloat((vehicle.etaMinutes - speedFactor).toFixed(2)));
 
               if (targetStation && targetStation.location && vehicle.location) {
                 const dLat = targetStation.location.lat - vehicle.location.lat;
                 const dLng = targetStation.location.lng - vehicle.location.lng;
 
                 if (vehicle.etaMinutes > 0) {
-                  const fraction = Math.min(1, 0.2 / vehicle.etaMinutes);
+                  const fraction = Math.min(1, speedFactor / (vehicle.etaMinutes + speedFactor));
                   vehicle.location.lat += dLat * fraction;
                   vehicle.location.lng += dLng * fraction;
                 }
@@ -161,7 +169,9 @@ async function runSimulator(): Promise<void> {
         baseUpdates[`/vehicles/${vehicleId}/batteryLevel`] = vehicle.batteryLevel;
         baseUpdates[`/vehicles/${vehicleId}/etaMinutes`] = vehicle.etaMinutes;
         baseUpdates[`/vehicles/${vehicleId}/status`] = vehicle.status;
-        baseUpdates[`/vehicles/${vehicleId}/targetStationId`] = vehicle.targetStationId;
+        if (vehicle.targetStationId !== undefined) {
+          baseUpdates[`/vehicles/${vehicleId}/targetStationId`] = vehicle.targetStationId;
+        }
         if (vehicle.isRerouted !== undefined) {
           baseUpdates[`/vehicles/${vehicleId}/isRerouted`] = vehicle.isRerouted;
         }

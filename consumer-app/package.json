@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@vis.gl/react-google-maps": "^1.8.3",
     "clsx": "^2.1.1",
     "firebase": "^12.11.0",
     "framer-motion": "^12.38.0",
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@tailwindcss/vite": "^4.2.2",
+    "@types/google.maps": "^3.64.0",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
