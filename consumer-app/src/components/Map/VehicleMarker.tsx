@@ -4,10 +4,10 @@ import { motion } from 'framer-motion';
 import { Car } from 'lucide-react';
 import clsx from 'clsx';
 
-export function VehicleMarker({ vehicle, targetStationName }: { vehicle: Vehicle, targetStationName?: string }) {
+export function VehicleMarker({ vehicle, targetStationName, currentUserId }: { vehicle: Vehicle, targetStationName?: string, currentUserId?: string }) {
   if (!vehicle.location) return null;
 
-  const isManual = vehicle.id === 'manual_user_999';
+  const isManual = !!currentUserId && vehicle.id === currentUserId;
   let markerColor = 'bg-blue-500 border-blue-400 text-white text-white drop-shadow';
   if (vehicle.status === 'RESERVED') markerColor = 'bg-yellow-500 border-yellow-400 text-white text-white drop-shadow';
   if (vehicle.status === 'stranded') markerColor = 'bg-red-600 border-red-500 text-white shadow-red-500/50';

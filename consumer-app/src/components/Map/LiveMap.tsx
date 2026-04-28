@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../lib/firebase';
 import { useSimulationState } from '../../hooks/useSimulationState';
+import { useAuth } from '../../contexts/AuthContext';
 import { StationMarker } from './StationMarker';
 import { VehicleMarker } from './VehicleMarker';
 import { RouteDirection } from './RouteDirection';
@@ -14,10 +15,13 @@ const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 export function LiveMap() {
   const { state } = useSimulationState();
   const { stations, vehicles } = state;
+  const { user } = useAuth();
+  const userId = user?.uid || '';
   const [deviceLoc, setDeviceLoc] = useState<{lat: number, lng: number} | null>(null);
 
   // Fetch real user device location and update the backend
   useEffect(() => {
+    if (!userId) return; // wait until auth is ready
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -35,7 +39,7 @@ export function LiveMap() {
 
           setDeviceLoc(loc);
           // Patch the actual real-time location to the backend database so the global simulation stays in sync!
-          update(ref(db, `vehicles/manual_user_999`), { location: loc }).catch(console.error);
+          update(ref(db, `vehicles/${userId}`), { location: loc }).catch(console.error);
         },
         (err) => {
           // Suppressed console.warn to keep the console clean during demos.
@@ -43,14 +47,14 @@ export function LiveMap() {
           // Hackathon Demo Fallback: Connaught Place, New Delhi
           const fallbackLoc = { lat: 28.6139, lng: 77.2090 };
           setDeviceLoc(fallbackLoc);
-          update(ref(db, `vehicles/manual_user_999`), { location: fallbackLoc }).catch(console.error);
+          update(ref(db, `vehicles/${userId}`), { location: fallbackLoc }).catch(console.error);
         },
         { enableHighAccuracy: true }
       );
     }
-  }, []);
+  }, [userId]);
 
-  const userVehicle = vehicles?.['manual_user_999'];
+  const userVehicle = vehicles?.[userId];
   const targetStation = userVehicle?.targetStationId ? stations?.[userVehicle.targetStationId] : null;
 
   const activeOrigin = userVehicle?.location || deviceLoc;
@@ -74,7 +78,7 @@ export function LiveMap() {
           {/* Show simulation vehicles */}
           {vehicles && Object.entries(vehicles).map(([vId, vehicle]) => {
             const targetName = stations?.[vehicle.targetStationId]?.name || "Unknown Station";
-            return <VehicleMarker key={vId} vehicle={vehicle} targetStationName={targetName} />;
+            return <VehicleMarker key={vId} vehicle={vehicle} targetStationName={targetName} currentUserId={userId} />;
           })}
 
           {/* Always show Current Device Location / Origin marker (NEVER removed on reset) */}

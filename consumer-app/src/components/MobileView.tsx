@@ -1,13 +1,16 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
-import { Zap, Monitor, Map as MapIcon, Car, BatteryCharging, Navigation } from 'lucide-react';
+import { Zap, Monitor, Map as MapIcon, Car, BatteryCharging, Navigation, LogOut } from 'lucide-react';
 import { LiveMap } from './Map/LiveMap';
 import { StationPanel } from './StationPanel';
 import { useSimulationState } from '../hooks/useSimulationState';
+import { useAuth } from '../contexts/AuthContext';
 
 export function MobileView() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { state } = useSimulationState();
-  const myVehicle = state.vehicles['manual_user_999'];
+  const { user, logout } = useAuth();
+  const userId = user?.uid || '';
+  const myVehicle = state.vehicles[userId];
   const batteryLevel = myVehicle ? Math.round(myVehicle.batteryLevel ?? 0) : 0;
   const targetStation = myVehicle?.targetStationId ? state.stations[myVehicle.targetStationId]?.name : 'None';
 
@@ -98,6 +101,15 @@ export function MobileView() {
             Station
           </button>
         </div>
+
+        {/* Logout */}
+        <button
+          onClick={logout}
+          className="shrink-0 w-7 h-7 rounded-lg bg-[#1a1723] border border-[#2a2638] flex items-center justify-center text-gray-500 hover:text-red-400 hover:border-red-500/40 transition-colors ml-1"
+          title="Logout"
+        >
+          <LogOut size={12} />
+        </button>
       </nav>
 
       {/* Main Content Area */}

@@ -5,12 +5,13 @@ import { Zap, MapPin, Navigation, Car, BatteryCharging, CheckCircle2, ChevronRig
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimulationState } from '../hooks/useSimulationState';
 import { useStationRecommendation } from '../hooks/useStationRecommendation';
-
-const USER_ID = 'manual_user_999';
+import { useAuth } from '../contexts/AuthContext';
 
 export function StationPanel() {
   const { state } = useSimulationState();
-  const vehicle = state.vehicles[USER_ID];
+  const { user } = useAuth();
+  const userId = user?.uid || '';
+  const vehicle = state.vehicles[userId];
   const stations = state.stations;
   const [searchTerm, setSearchTerm] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
@@ -42,8 +43,8 @@ export function StationPanel() {
     const baseLat = 28.6139; // Delhi base
     const baseLng = 77.2090;
     
-    set(ref(db, `vehicles/${USER_ID}`), {
-      id: USER_ID,
+    set(ref(db, `vehicles/${userId}`), {
+      id: userId,
       batteryLevel: 15, // Starting battery per demo
       status: initialStatus,
       targetStationId: targetId,
@@ -58,10 +59,10 @@ export function StationPanel() {
 
   const cancelCharge = () => {
     // Do not delete the vehicle, just reset the session state
-    set(ref(db, `vehicles/${USER_ID}/targetStationId`), null);
-    set(ref(db, `vehicles/${USER_ID}/status`), 'idle');
-    set(ref(db, `vehicles/${USER_ID}/etaMinutes`), 0);
-    set(ref(db, `vehicles/${USER_ID}/isManualSelection`), false);
+    set(ref(db, `vehicles/${userId}/targetStationId`), null);
+    set(ref(db, `vehicles/${userId}/status`), 'idle');
+    set(ref(db, `vehicles/${userId}/etaMinutes`), 0);
+    set(ref(db, `vehicles/${userId}/isManualSelection`), false);
   };
 
   const getStatusDisplay = () => {

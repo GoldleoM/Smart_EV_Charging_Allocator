@@ -83,9 +83,9 @@ export function useStationRecommendation() {
     const snapshot = await get(ref(db, '/stations'));
     const stations = snapshot.val() || {};
 
-    // Base lat/lng for manual_user_999
-    const vehicleLat = 40.7128 + (Math.random() - 0.5) * 0.04;
-    const vehicleLng = -74.0060 + (Math.random() - 0.5) * 0.04;
+    // Base lat/lng for user vehicle (Delhi)
+    const vehicleLat = 28.6139 + (Math.random() - 0.5) * 0.04;
+    const vehicleLng = 77.2090 + (Math.random() - 0.5) * 0.04;
 
     const results: StationRecommendation[] = [];
 

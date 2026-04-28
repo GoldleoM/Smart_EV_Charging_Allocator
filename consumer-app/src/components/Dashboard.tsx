@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Search, Bell, Settings, MapPin,
   Car, Zap, Activity, Navigation,
   Map as MapIcon, ChevronDown, Monitor,
-  MoreVertical, Clock
+  MoreVertical, Clock, LogOut
 } from 'lucide-react';
 import { LiveMap } from './Map/LiveMap';
 import { useSimulationState } from '../hooks/useSimulationState';
@@ -12,7 +13,9 @@ import { StationPanel } from './StationPanel';
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { state } = useSimulationState();
-  const myVehicle = state.vehicles['manual_user_999'];
+  const { user, logout } = useAuth();
+  const userId = user?.uid || '';
+  const myVehicle = state.vehicles[userId];
   const batteryLevel = myVehicle ? Math.round(myVehicle.batteryLevel ?? 0) : 0;
   const targetStation = myVehicle?.targetStationId ? state.stations[myVehicle.targetStationId]?.name : 'None';
 
@@ -48,6 +51,19 @@ export function Dashboard() {
           </button>
         </div>
 
+        {/* User Info & Logout */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-400 hidden sm:inline truncate max-w-[160px]" title={user?.email || ''}>
+            {user?.email}
+          </span>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white bg-[#1a1723] border border-[#2a2638] hover:border-red-500/40 transition-colors"
+          >
+            <LogOut size={14} />
+            Logout
+          </button>
+        </div>
       </nav>
 
       {/* Main Layout Area */}
