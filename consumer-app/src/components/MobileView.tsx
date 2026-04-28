@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
-import { Zap, Monitor, Map as MapIcon, Car, BatteryCharging, Navigation, LogOut } from 'lucide-react';
+import { Zap, Monitor, Map as MapIcon, Car, Navigation, LogOut } from 'lucide-react';
 import { LiveMap } from './Map/LiveMap';
 import { StationPanel } from './StationPanel';
 import { useSimulationState } from '../hooks/useSimulationState';

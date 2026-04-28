@@ -18,7 +18,7 @@ export function RouteDirection({ origin, destination, color = '#000000ff', weigh
   // Stable ref so debounced callbacks always read the latest origin
   const originRef = useRef(origin);
   originRef.current = origin;
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // 1. Initialize Service and Renderer once the Maps library is ready
   useEffect(() => {

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  Search, Bell, Settings, MapPin,
-  Car, Zap, Activity, Navigation,
+  Settings,
+  Car, Zap, Activity,
   Map as MapIcon, ChevronDown, Monitor,
-  MoreVertical, Clock, LogOut
+  Clock, LogOut
 } from 'lucide-react';
 import { LiveMap } from './Map/LiveMap';
 import { useSimulationState } from '../hooks/useSimulationState';

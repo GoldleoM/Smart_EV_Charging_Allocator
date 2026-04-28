@@ -41,7 +41,7 @@ export function LiveMap() {
           // Patch the actual real-time location to the backend database so the global simulation stays in sync!
           update(ref(db, `vehicles/${userId}`), { location: loc }).catch(console.error);
         },
-        (err) => {
+        () => {
           // Suppressed console.warn to keep the console clean during demos.
           // Geolocation is blocked by the browser, so we silently use the NYC fallback.
           // Hackathon Demo Fallback: Connaught Place, New Delhi

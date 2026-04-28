@@ -6,8 +6,24 @@ import { seedStations, StationsMap } from './models/Station';
 import { generateVehicles, VehiclesMap } from './models/Vehicle';
 import { allocateSlots } from './engine/allocator';
 import { ref, get, update } from 'firebase/database';
+import express from 'express';
 
 async function runSimulator(): Promise<void> {
+  const app = express();
+  const PORT = process.env.PORT || 8080;
+
+  app.get('/', (req, res) => {
+    res.send('Smart EV Orchestrator is running...');
+  });
+
+  app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  });
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Health check server listening on port ${PORT}`);
+  });
+
   if (!db) {
     console.error("FATAL: Database instance not found. Ensure .env is loaded.");
     return;
