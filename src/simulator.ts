@@ -1,45 +1,50 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { db } from './db/firebaseConfig';
-import { seedStations, StationsMap } from './models/Station';
-import { generateVehicles, VehiclesMap } from './models/Vehicle';
-import { allocateSlots } from './engine/allocator';
+import { db } from './db/firebaseConfig.js';
+import { seedStations, StationsMap } from './models/Station.js';
+import { generateVehicles, VehiclesMap } from './models/Vehicle.js';
+import { allocateSlots } from './engine/allocator.js';
 import { ref, get, update } from 'firebase/database';
 import express from 'express';
 
+const app = express();
+const PORT = Number(process.env.PORT) || 8080;
+
+// 1. Start Server Immediately (Crucial for Cloud Run)
+app.get('/', (req, res) => {
+  res.send('Smart EV Orchestrator is running...');
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Health check server listening on port ${PORT}`);
+});
+
 async function runSimulator(): Promise<void> {
-  const app = express();
-  const PORT = process.env.PORT || 8080;
-
-  app.get('/', (req, res) => {
-    res.send('Smart EV Orchestrator is running...');
-  });
-
-  app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
-  });
-
-  app.listen(PORT, () => {
-    console.log(`🚀 Health check server listening on port ${PORT}`);
-  });
+  console.log("🚗 Initializing Smart EV Orchestrator...");
 
   if (!db) {
-    console.error("FATAL: Database instance not found. Ensure .env is loaded.");
+    console.error("FATAL: Database instance not found. Ensure environment variables are set.");
     return;
   }
 
   console.log("🚗 Initializing Smart EV Orchestrator...");
 
-  await seedStations(db);
-  await generateVehicles(db, 7);
+  const validatedDb = db!; // At this point we know db is not null
+
+  await seedStations(validatedDb);
+  await generateVehicles(validatedDb, 7);
 
   console.log("\n⚡ Starting vehicle simulation loop (tick = 5s)...\n");
 
   const runTick = async () => {
     try {
       // 1. Fetch entire state
-      const snapshot = await get(ref(db, '/'));
+      const snapshot = await get(ref(validatedDb, '/'));
       const state = snapshot.val();
 
       if (!state || !state.vehicles || !state.stations) return;
@@ -220,7 +225,7 @@ async function runSimulator(): Promise<void> {
       const finalUpdates = { ...baseUpdates, ...allocatorUpdates };
 
       if (Object.keys(finalUpdates).length > 0) {
-        await update(ref(db), finalUpdates);
+        await update(ref(validatedDb), finalUpdates);
 
         const drivingCount = Object.values(vehicles).filter((v) => v.status === "driving").length;
         const reservedCount = Object.values(vehicles).filter((v) => v.status === "RESERVED").length;
@@ -241,4 +246,6 @@ async function runSimulator(): Promise<void> {
   runTick();
 }
 
-runSimulator();
+runSimulator().catch(err => {
+  console.error("❌ Fatal error in simulator startup:", err);
+});

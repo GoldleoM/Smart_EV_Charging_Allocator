@@ -28,6 +28,7 @@ export function RouteDirection({ origin, destination, color = '#000000ff', weigh
     const renderer = new routesLibrary.DirectionsRenderer({
       map,
       suppressMarkers: true,
+      preserveViewport: true,
       polylineOptions: { strokeColor: color, strokeWeight: weight },
     });
 

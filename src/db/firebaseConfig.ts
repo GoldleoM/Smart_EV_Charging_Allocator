@@ -16,8 +16,13 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db: Database = getDatabase(app);
 
-console.log("Firebase initialized successfully.");
+let db: Database | null = null;
+try {
+  db = getDatabase(app);
+  console.log("Firebase initialized successfully.");
+} catch (error: any) {
+  console.warn("⚠️ Firebase Database could not be initialized. Check your environment variables.", error.message);
+}
 
 export { db };

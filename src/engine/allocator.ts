@@ -1,6 +1,6 @@
 
-import type { Vehicle, VehiclesMap } from '../models/Vehicle';
-import type { StationsMap } from '../models/Station';
+import type { Vehicle, VehiclesMap } from '../models/Vehicle.js';
+import type { StationsMap } from '../models/Station.js';
 
 /**
  * Calculates priority score based on battery and ETA.

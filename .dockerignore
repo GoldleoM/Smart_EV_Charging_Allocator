@@ -1,9 +1,11 @@
 node_modules
 npm-debug.log
-Dockerfile
 .git
 .env
-consumer-app/node_modules
-frontend/node_modules
+consumer-app
+frontend
 dist
 build
+.planning
+.firebase
+.vscode

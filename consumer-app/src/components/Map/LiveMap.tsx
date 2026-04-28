@@ -18,6 +18,7 @@ export function LiveMap() {
   const { user } = useAuth();
   const userId = user?.uid || '';
   const [deviceLoc, setDeviceLoc] = useState<{lat: number, lng: number} | null>(null);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
 
   // Fetch real user device location and update the backend
   useEffect(() => {
@@ -59,6 +60,12 @@ export function LiveMap() {
 
   const activeOrigin = userVehicle?.location || deviceLoc;
 
+  useEffect(() => {
+    if (userVehicle?.targetStationId) {
+      setSelectedStationId(userVehicle.targetStationId);
+    }
+  }, [userVehicle?.targetStationId]);
+
   return (
     <div className="absolute inset-0 w-full h-full bg-dark-900 z-0">
       <APIProvider apiKey={apiKey}>
@@ -72,7 +79,15 @@ export function LiveMap() {
         >
           {stations && Object.entries(stations).map(([stationId, station]) => {
             const queueLength = vehicles ? Object.values(vehicles).filter((v: any) => v.targetStationId === stationId && (v.status === "RESERVED" || v.status === "waiting")).length : 0;
-            return <StationMarker key={stationId} station={station} queueLength={queueLength} />;
+            return (
+              <StationMarker
+                key={stationId}
+                station={station}
+                queueLength={queueLength}
+                isSelected={selectedStationId === stationId}
+                onToggle={() => setSelectedStationId((current) => current === stationId ? null : stationId)}
+              />
+            );
           })}
 
           {/* Show simulation vehicles */}
