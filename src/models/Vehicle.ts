@@ -20,36 +20,26 @@ export interface Vehicle {
 export type VehiclesMap = Record<string, Vehicle>;
 
 export async function generateVehicles(db: Database, count: number): Promise<void> {
-  const stationIds = ["station_1", "station_2", "station_3"];
   const vehiclesData: VehiclesMap = {};
 
-  const stationLocs: Record<string, { lat: number, lng: number }> = {
-    "station_1": { lat: 28.6322, lng: 77.2198 }, // Connaught Place
-    "station_2": { lat: 28.5683, lng: 77.2162 }, // South Ex
-    "station_3": { lat: 28.5303, lng: 77.1561 }  // Vasant Kunj
-  };
+  // Central Delhi anchor — vehicles scatter randomly around this point
+  const centerLat = 28.6139;
+  const centerLng = 77.2090;
 
   for (let i = 1; i <= count; i++) {
     const batteryLevel = Math.floor(Math.random() * 41) + 10; // 10-50
-    const targetStationId = stationIds[Math.floor(Math.random() * stationIds.length)];
-    const targetLoc = stationLocs[targetStationId];
-    
-    // Generate inside a ~10km radius from the target station to fit inside the Zoom radius
-    const vLat = targetLoc.lat + (Math.random() - 0.5) * 0.08;
-    const vLng = targetLoc.lng + (Math.random() - 0.5) * 0.08;
-    
-    // Formula: 1 degree = 111km. Speed = 30km/h = 0.5km/min. Mins = (degree * 111) / 0.5 = degree * 222.
-    const distanceDegree = Math.sqrt(Math.pow(vLat - targetLoc.lat, 2) + Math.pow(vLng - targetLoc.lng, 2));
-    let accurateEta = Math.round(distanceDegree * 222);
-    if (accurateEta < 2) accurateEta = 2;
+
+    // Scatter within ~10km of central Delhi
+    const vLat = centerLat + (Math.random() - 0.5) * 0.12;
+    const vLng = centerLng + (Math.random() - 0.5) * 0.12;
 
     vehiclesData[`vehicle_${i}`] = {
       id: `vehicle_${i}`,
       batteryLevel,
       status: "driving",
       location: { lat: vLat, lng: vLng },
-      targetStationId,
-      etaMinutes: accurateEta,
+      targetStationId: "",
+      etaMinutes: 0,
       queuePriorityScore: 0
     };
   }

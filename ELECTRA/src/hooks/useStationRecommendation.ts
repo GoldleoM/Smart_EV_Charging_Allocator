@@ -6,7 +6,10 @@ import { ref, get } from 'firebase/database';
 import { db } from '../lib/firebase';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: "gemma-4-31b-it" });
+const model = genAI.getGenerativeModel({
+  model: "gemini-3.1-flash-lite-preview",
+  systemInstruction: "You are a direct, concise assistant. NEVER output your reasoning process, drafts, or internal thoughts. ONLY output the final exact requested response format."
+});
 
 export function useStationRecommendation() {
   const [isLoading, setIsLoading] = useState(false);
@@ -47,8 +50,8 @@ export function useStationRecommendation() {
   const parseUserRequest = async (userInput: string): Promise<ParsedRequest | null> => {
     const prompt = PARSE_PROMPT.replace('{userInput}', userInput);
     const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
-    
+    const text = result.response.text().replace(/<thought>[\s\S]*?<\/thought>/g, '').trim();
+
     const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
     try {
       return JSON.parse(cleanJson);
@@ -56,7 +59,7 @@ export function useStationRecommendation() {
       // Fallback: Use brace counting to find a valid JSON object
       let braceCount = 0;
       let startIndex = -1;
-      
+
       for (let i = 0; i < text.length; i++) {
         if (text[i] === '{') {
           if (braceCount === 0) startIndex = i;
@@ -159,7 +162,7 @@ export function useStationRecommendation() {
 
       try {
         const res = await model.generateContent(prompt);
-        st.explanation = res.response.text().trim();
+        st.explanation = res.response.text().replace(/<thought>[\s\S]*?<\/thought>/g, '').trim();
       } catch (e) {
         st.explanation = "Good option based on your current constraints.";
       }

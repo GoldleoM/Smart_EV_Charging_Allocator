@@ -13,7 +13,7 @@ const PORT = Number(process.env.PORT) || 8080;
 
 // 1. Start Server Immediately (Crucial for Cloud Run)
 app.get('/', (req, res) => {
-  res.send('Smart EV Orchestrator is running...');
+  res.send('Smart EV Orchestrator is running...Well And Good');
 });
 
 app.get('/health', (req, res) => {
@@ -23,6 +23,55 @@ app.get('/health', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Health check server listening on port ${PORT}`);
 });
+
+// --- Performance: Delta-tracking write helper ---
+// Only write fields that actually changed since last tick
+let previousState: Record<string, any> = {};
+
+function computeDeltaUpdates(updates: Record<string, any>): Record<string, any> {
+  const delta: Record<string, any> = {};
+  for (const [path, value] of Object.entries(updates)) {
+    const prev = previousState[path];
+    // Fast comparison: primitives and simple objects (like location {lat, lng})
+    if (prev === value) continue;
+    if (
+      typeof prev === 'object' && prev !== null &&
+      typeof value === 'object' && value !== null
+    ) {
+      // Shallow compare for location objects
+      const keys = Object.keys(value);
+      let same = keys.length === Object.keys(prev).length;
+      if (same) {
+        for (const k of keys) {
+          if (prev[k] !== value[k]) { same = false; break; }
+        }
+      }
+      if (same) continue;
+    }
+    delta[path] = value;
+    previousState[path] = value;
+  }
+  return delta;
+}
+
+// --- Performance: Batched Firebase write to avoid payload limits ---
+const MAX_PATHS_PER_WRITE = 200;
+
+async function batchedUpdate(dbRef: ReturnType<typeof ref>, updates: Record<string, any>): Promise<void> {
+  const entries = Object.entries(updates);
+  if (entries.length === 0) return;
+
+  if (entries.length <= MAX_PATHS_PER_WRITE) {
+    await update(dbRef, updates);
+    return;
+  }
+
+  // Split into chunks
+  for (let i = 0; i < entries.length; i += MAX_PATHS_PER_WRITE) {
+    const chunk = Object.fromEntries(entries.slice(i, i + MAX_PATHS_PER_WRITE));
+    await update(dbRef, chunk);
+  }
+}
 
 async function runSimulator(): Promise<void> {
   console.log("🚗 Initializing Smart EV Orchestrator...");
@@ -42,25 +91,39 @@ async function runSimulator(): Promise<void> {
   console.log("\n⚡ Starting vehicle simulation loop (tick = 5s)...\n");
 
   const runTick = async () => {
+    const tickStart = performance.now();
     try {
-      // 1. Fetch entire state
-      const snapshot = await get(ref(validatedDb, '/'));
-      const state = snapshot.val();
+      // 1. Fetch vehicles and stations separately (avoid reading entire DB root)
+      const [vehiclesSnap, stationsSnap, systemSnap] = await Promise.all([
+        get(ref(validatedDb, '/vehicles')),
+        get(ref(validatedDb, '/stations')),
+        get(ref(validatedDb, '/system')),
+      ]);
 
-      if (!state || !state.vehicles || !state.stations) return;
-      if (state.system?.isPaused) return;
+      const vehicles = vehiclesSnap.val() as VehiclesMap | null;
+      const stations = stationsSnap.val() as StationsMap | null;
+      const system = systemSnap.val();
 
-      const vehicles = state.vehicles as VehiclesMap;
-      const stations = state.stations as StationsMap;
+      if (!vehicles || !stations) {
+        setTimeout(runTick, 5000);
+        return;
+      }
+      if (system?.isPaused) {
+        setTimeout(runTick, 5000);
+        return;
+      }
 
       let baseUpdates: Record<string, any> = {};
 
-      // 2. Compute physics deltas
-      // 2. Physics & State Machine
-      const stationWaitingQueues: Record<string, typeof vehicles[0][]> = {};
-      Object.keys(stations).forEach(id => stationWaitingQueues[id] = []);
+      // Counters for logging (track inline instead of filtering at the end)
+      let drivingCount = 0;
+      let reservedCount = 0;
 
-      // Phase 1: General Movement & Charging
+      // 2. Physics & State Machine
+      const stationWaitingQueues: Record<string, typeof vehicles[string][]> = {};
+      const stationIds = Object.keys(stations);
+      for (const id of stationIds) stationWaitingQueues[id] = [];
+
       // Process departures first to free capacity, then prioritize closest vehicles to prevent queue jumping
       const sortedVehicles = Object.entries(vehicles).sort((a, b) => {
         if (a[1].status === "OCCUPIED" && b[1].status !== "OCCUPIED") return -1;
@@ -118,11 +181,11 @@ async function runSimulator(): Promise<void> {
                 vehicle.status = "waiting";
                 vehicle.etaMinutes = 0; // lock to 0 natively
                 if (targetStation.location) vehicle.location = { ...targetStation.location };
-                
+
                 // Consume Parking Slot
                 targetStation.availableParking -= 1;
                 baseUpdates[`/stations/${vehicle.targetStationId}/availableParking`] = targetStation.availableParking;
-                
+
                 stationWaitingQueues[vehicle.targetStationId].push(vehicle);
               }
               // If parking is 0, they idle at ETA=0 outside.
@@ -163,7 +226,6 @@ async function runSimulator(): Promise<void> {
             }
 
             // Reset to driving with new destination
-            const stationIds = Object.keys(stations);
             vehicle.status = "driving";
             vehicle.batteryLevel = 100;
             const newTargetId = stationIds[Math.floor(Math.random() * stationIds.length)];
@@ -186,6 +248,11 @@ async function runSimulator(): Promise<void> {
             console.log(`✨ Vehicle ${vehicleId} fully charged and departed for ${vehicle.targetStationId}`);
           }
         }
+
+        // Track counts inline (no extra passes)
+        if (vehicle.status === "driving") drivingCount++;
+        else if (vehicle.status === "RESERVED") reservedCount++;
+
         // Shared updates for all status types
         baseUpdates[`/vehicles/${vehicleId}/batteryLevel`] = vehicle.batteryLevel;
         baseUpdates[`/vehicles/${vehicleId}/etaMinutes`] = vehicle.etaMinutes;
@@ -208,12 +275,13 @@ async function runSimulator(): Promise<void> {
 
         let chargersToAssign = station.availableChargers;
         for (let i = 0; i < queue.length && chargersToAssign > 0; i++) {
-            const v = queue[i];
-            v.status = "OCCUPIED";
-            chargersToAssign--;
-            station.availableChargers--;
-            
-            baseUpdates[`/vehicles/${v.id}/status`] = "OCCUPIED";
+          const v = queue[i];
+          v.status = "OCCUPIED";
+          chargersToAssign--;
+          station.availableChargers--;
+
+          baseUpdates[`/vehicles/${v.id}/status`] = "OCCUPIED";
+          baseUpdates[`/vehicles/${v.id}/isRerouted`] = false;
         }
         baseUpdates[`/stations/${stationId}/availableChargers`] = station.availableChargers;
       }
@@ -221,20 +289,22 @@ async function runSimulator(): Promise<void> {
       // 3. Run allocator with advanced physics state
       const allocatorUpdates = allocateSlots(vehicles, stations);
 
-      // 4. Merge and atomic commit
-      const finalUpdates = { ...baseUpdates, ...allocatorUpdates };
+      // 4. Merge, compute delta, and write only what changed
+      const fullUpdates = { ...baseUpdates, ...allocatorUpdates };
+      const deltaUpdates = computeDeltaUpdates(fullUpdates);
 
-      if (Object.keys(finalUpdates).length > 0) {
-        await update(ref(validatedDb), finalUpdates);
+      const totalPaths = Object.keys(fullUpdates).length;
+      const deltaPaths = Object.keys(deltaUpdates).length;
 
-        const drivingCount = Object.values(vehicles).filter((v) => v.status === "driving").length;
-        const reservedCount = Object.values(vehicles).filter((v) => v.status === "RESERVED").length;
-
-        console.log(`Tick → ${drivingCount} driving | ${reservedCount} RESERVED`);
+      if (deltaPaths > 0) {
+        await batchedUpdate(ref(validatedDb), deltaUpdates);
       }
 
+      const tickMs = (performance.now() - tickStart).toFixed(1);
+      console.log(`Tick → ${drivingCount} driving | ${reservedCount} RESERVED | ${deltaPaths}/${totalPaths} writes | ${tickMs}ms`);
+
       // Read tickInterval from db, fallback to 5000
-      const tickInterval = state.system?.tickInterval || 5000;
+      const tickInterval = system?.tickInterval || 5000;
       setTimeout(runTick, tickInterval);
 
     } catch (error: any) {

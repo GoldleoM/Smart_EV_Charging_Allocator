@@ -147,7 +147,7 @@ export function Dashboard() {
                       <div className="text-xs text-gray-500">Target Station</div>
                     </div>
                     <div className="text-center border-l border-[#2a2638]">
-                      <div className="text-xl font-bold text-white mb-1">$18 <span className="text-xs font-normal text-gray-400">USD</span></div>
+                      <div className="text-xl font-bold text-white mb-1">₹1700 <span className="text-xs font-normal text-gray-400">INR</span></div>
                       <div className="text-xs text-gray-500">Cost per kW</div>
                     </div>
                   </div>

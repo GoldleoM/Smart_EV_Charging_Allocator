@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Station } from '../../hooks/useSimulationState';
 import { AdvancedMarker } from '@vis.gl/react-google-maps';
 import { motion } from 'framer-motion';

@@ -1,4 +1,4 @@
-import { set, update, ref } from 'firebase/database';
+import { update, ref } from 'firebase/database';
 import { db } from '../../lib/firebase';
 import { motion } from 'framer-motion';
 import { Plus, Zap, RefreshCw, Cpu, Building } from 'lucide-react';
@@ -10,17 +10,12 @@ export function DemoBar() {
 
   const generateNewVehicle = async () => {
     const id = `manual_${Date.now().toString().slice(-4)}`;
-    const stationIds = ["station_1", "station_2", "station_3"];
-    const target = stationIds[Math.floor(Math.random() * stationIds.length)];
-    
-    // Target anchor so we don't spawn them off-screen
-    const targetLoc = state.stations[target]?.location || { lat: 40.75, lng: -73.98 };
-    const vLat = targetLoc.lat + (Math.random() - 0.5) * 0.08;
-    const vLng = targetLoc.lng + (Math.random() - 0.5) * 0.08;
-    
-    const distanceDegree = Math.sqrt(Math.pow(vLat - targetLoc.lat, 2) + Math.pow(vLng - targetLoc.lng, 2));
-    let accurateEta = Math.round(distanceDegree * 222);
-    if (accurateEta < 2) accurateEta = 2;
+
+    // Scatter around central Delhi — allocator will assign a station dynamically
+    const centerLat = 28.6139;
+    const centerLng = 77.2090;
+    const vLat = centerLat + (Math.random() - 0.5) * 0.12;
+    const vLng = centerLng + (Math.random() - 0.5) * 0.12;
 
     await update(ref(db), {
       [`/vehicles/${id}`]: {
@@ -28,8 +23,8 @@ export function DemoBar() {
         batteryLevel: Math.floor(Math.random() * 20) + 5, // 5-25 (Urgent!)
         status: "driving",
         location: { lat: vLat, lng: vLng },
-        targetStationId: target,
-        etaMinutes: accurateEta,
+        targetStationId: "",
+        etaMinutes: 0,
         queuePriorityScore: 0
       }
     });
@@ -61,9 +56,9 @@ export function DemoBar() {
     const parking = parseInt(parkingStr, 10);
     const charging = parseInt(chargingStr, 10);
     
-    // Pick a random location within the NY grid
-    const lat = 40.71 + (Math.random() * 0.08);
-    const lng = -74.00 + (Math.random() * 0.08);
+    // Pick a random location within the Delhi grid
+    const lat = 28.5 + (Math.random() * 0.2);
+    const lng = 77.1 + (Math.random() * 0.2);
     
     const id = `station_${Date.now().toString().slice(-4)}`;
 
@@ -80,43 +75,16 @@ export function DemoBar() {
   };
 
   const resetSimulation = async () => {
-    const stationIds = ["station_1", "station_2", "station_3"];
-    
-    // 1. Reset Stations to completely empty
-    const stationsData = {
-      "station_1": { name: "Downtown Hub", location: { lat: 40.7128, lng: -74.0060 }, totalParking: 10, availableParking: 10, totalChargers: 5, availableChargers: 5 },
-      "station_2": { name: "Midtown Fast-Charge", location: { lat: 40.7580, lng: -73.9855 }, totalParking: 8, availableParking: 8, totalChargers: 8, availableChargers: 8 },
-      "station_3": { name: "Uptown Plaza", location: { lat: 40.7851, lng: -73.9683 }, totalParking: 15, availableParking: 15, totalChargers: 3, availableChargers: 3 }
-    };
-    
-    // 2. Generate exactly 7 fresh vehicles
-    const vehiclesData: Record<string, any> = {};
-    for (let i = 1; i <= 7; i++) {
-      const target = stationIds[Math.floor(Math.random() * stationIds.length)];
-      const targetLoc = (stationsData as any)[target].location;
-      const vLat = targetLoc.lat + (Math.random() - 0.5) * 0.08;
-      const vLng = targetLoc.lng + (Math.random() - 0.5) * 0.08;
-      
-      const distanceDegree = Math.sqrt(Math.pow(vLat - targetLoc.lat, 2) + Math.pow(vLng - targetLoc.lng, 2));
-      let accurateEta = Math.round(distanceDegree * 222);
-      if (accurateEta < 2) accurateEta = 2;
-
-      vehiclesData[`vehicle_${i}`] = {
-        id: `vehicle_${i}`,
-        batteryLevel: Math.floor(Math.random() * 41) + 10, // 10-50%
-        status: "driving",
-        location: { lat: vLat, lng: vLng },
-        targetStationId: target,
-        etaMinutes: accurateEta,
-        queuePriorityScore: 0
-      };
+    try {
+      const response = await fetch('https://my-backend-265867944795.asia-south1.run.app/api/reset', {
+        method: 'POST'
+      });
+      if (!response.ok) {
+        console.error('Failed to reset simulation via backend');
+      }
+    } catch (err) {
+      console.error('Error resetting simulation:', err);
     }
-    
-    // Atomically reset the entire DB to initial state
-    await set(ref(db, '/'), {
-      stations: stationsData,
-      vehicles: vehiclesData
-    });
   };
 
   return (

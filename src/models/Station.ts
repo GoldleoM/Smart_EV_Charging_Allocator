@@ -31,10 +31,10 @@ export async function seedStations(db: Database): Promise<void> {
       if (data.status === 'OK' && data.results && data.results.length > 0) {
         data.results.slice(0, 15).forEach((place: any, index: number) => {
           // Simulate the parking logic since Places API doesn't provide real-time occupancy.
-          const totalParking = Math.floor(Math.random() * 10) + 4;
-          const availableParking = Math.floor(Math.random() * totalParking);
-          const totalChargers = Math.floor(Math.random() * Math.min(totalParking, 6)) + 2;
-          const availableChargers = Math.floor(Math.random() * totalChargers);
+          const totalChargers = Math.floor(Math.random() * 4) + 2;
+          const availableChargers = totalChargers;
+          const totalParking = Math.floor(Math.random() * 10) + totalChargers;
+          const availableParking = totalParking;
 
           stationsData[`station_${index + 1}`] = {
             name: place.name || "EV Charging Station",

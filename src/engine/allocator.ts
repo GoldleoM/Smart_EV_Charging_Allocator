@@ -14,6 +14,20 @@ export function calculatePriorityScore(vehicle: Vehicle): number {
 }
 
 /**
+ * Pre-compute station data arrays once per tick to avoid repeated Object.entries()
+ * and repeated property access inside the hot loop.
+ */
+interface StationEntry {
+  id: string;
+  lat: number;
+  lng: number;
+  availableChargers: number;
+  totalChargers: number;
+  availableParking: number;
+  totalParking: number;
+}
+
+/**
  * Pure function that determines which vehicles get a slot.
  * Mutates the stations object in memory to enforce locking for the current tick.
  * Returns a map of Firebase update paths.
@@ -21,11 +35,25 @@ export function calculatePriorityScore(vehicle: Vehicle): number {
 export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Record<string, any> {
   const updates: Record<string, any> = {};
 
+  const CONSUMPTION_RATE = 0.5; // battery units per ETA minute
+
+  // --- Pre-compute station array once (avoid re-iterating Object.entries in hot loop) ---
+  const stationEntries: StationEntry[] = [];
+  for (const [sId, st] of Object.entries(stations)) {
+    if (!st.location) continue;
+    stationEntries.push({
+      id: sId,
+      lat: st.location.lat,
+      lng: st.location.lng,
+      availableChargers: st.availableChargers,
+      totalChargers: st.totalChargers,
+      availableParking: st.availableParking,
+      totalParking: st.totalParking,
+    });
+  }
+
   const activeSeeking: Vehicle[] = [];
   const currentlyReserved: Vehicle[] = [];
-  const queueCounts: Record<string, number> = {};
-
-  const CONSUMPTION_RATE = 0.5; // battery units per ETA minute
 
   // 1. Gather & Score all vehicles
   for (const v of Object.values(vehicles)) {
@@ -65,6 +93,7 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
   for (const vehicle of allRouting) {
     const vId = vehicle.id;
     if (!vId) continue;
+    if (!vehicle.location) continue; // Skip vehicles without location (avoids inner-loop guard)
 
     if (vehicle.isManualSelection && vehicle.targetStationId) {
       // Driver picked this station manually! Respect the AI lock, but still emit their presence to virtual queues so AI vehicles route around them.
@@ -76,14 +105,21 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
       continue; // Skip the routing algorithm completely
     }
 
+    const vLat = vehicle.location.lat;
+    const vLng = vehicle.location.lng;
+
     let bestStationId: string | null = null;
     let lowestCost = Infinity;
     let newEta = vehicle.etaMinutes;
 
-    for (const [sId, st] of Object.entries(stations)) {
-      if (!st.location || !vehicle.location) continue;
+    // --- Hot inner loop: iterate pre-computed station array ---
+    for (let si = 0; si < stationEntries.length; si++) {
+      const se = stationEntries[si];
 
-      const dist = Math.sqrt(Math.pow(st.location.lat - vehicle.location.lat, 2) + Math.pow(st.location.lng - vehicle.location.lng, 2));
+      const dLat = se.lat - vLat;
+      const dLng = se.lng - vLng;
+      const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+
       let accurateEta = Math.round(dist * 222);
       if (accurateEta < 2) accurateEta = 2; // Base travel time
 
@@ -92,34 +128,34 @@ export function allocateSlots(vehicles: VehiclesMap, stations: StationsMap): Rec
 
       // Project Wait Time for Chargers
       // Because we process highest priority vehicles first, carsAhead is EXACTLY the size of the virtual queue we've built so far!
-      const carsAheadForCharger = currentVirtualQueues[sId] || 0;
+      const carsAheadForCharger = currentVirtualQueues[se.id] || 0;
 
       let waitCost = 0;
-      if (carsAheadForCharger >= st.availableChargers) {
+      if (carsAheadForCharger >= se.availableChargers) {
         // If available chargers is full, the very first car to wait (carsAhead=0) MUST wait for 1 car turnover.
-        const waitingCarsToClear = carsAheadForCharger - st.availableChargers + 1;
-        waitCost = Math.ceil(waitingCarsToClear / Math.max(1, st.totalChargers)) * 10;
+        const waitingCarsToClear = carsAheadForCharger - se.availableChargers + 1;
+        waitCost = Math.ceil(waitingCarsToClear / Math.max(1, se.totalChargers)) * 10;
       }
 
       // Project Wait Time for Parking
-      const requiresNewParking = !(vehicle.status === "waiting" && vehicle.targetStationId === sId);
-      const carsIncomingAhead = currentVirtualIncoming[sId] || 0;
+      const requiresNewParking = !(vehicle.status === "waiting" && vehicle.targetStationId === se.id);
+      const carsIncomingAhead = currentVirtualIncoming[se.id] || 0;
 
       // Massive penalty if physical parking will be completely full upon arrival!
-      if (requiresNewParking && carsIncomingAhead >= st.availableParking) {
+      if (requiresNewParking && carsIncomingAhead >= se.availableParking) {
           waitCost += 1000;
       }
 
       // Increased penalty if changing destinations to avoid thrashing
-      let switchPenalty = (vehicle.targetStationId && vehicle.targetStationId !== sId) ? 15 : 0;
-      if (vehicle.targetStationId && vehicle.targetStationId !== sId && vehicle.etaMinutes <= 5) {
+      let switchPenalty = (vehicle.targetStationId && vehicle.targetStationId !== se.id) ? 15 : 0;
+      if (vehicle.targetStationId && vehicle.targetStationId !== se.id && vehicle.etaMinutes <= 5) {
         switchPenalty += 1000; // Almost never reroute if inside 5 minute proximity!
       }
       const totalCost = accurateEta + waitCost + switchPenalty;
 
       if (totalCost < lowestCost) {
         lowestCost = totalCost;
-        bestStationId = sId;
+        bestStationId = se.id;
         newEta = accurateEta;
       }
     }

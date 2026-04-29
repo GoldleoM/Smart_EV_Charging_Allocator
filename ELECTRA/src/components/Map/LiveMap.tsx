@@ -76,6 +76,7 @@ export function LiveMap() {
           mapId={mapId}
           disableDefaultUI={true}
           gestureHandling={'greedy'}
+          clickableIcons={false}
         >
           {stations && Object.entries(stations).map(([stationId, station]) => {
             const queueLength = vehicles ? Object.values(vehicles).filter((v: any) => v.targetStationId === stationId && (v.status === "RESERVED" || v.status === "waiting")).length : 0;

@@ -43,8 +43,11 @@ Recommended Station: {stationName}
 - Available Chargers: {chargersAvailable} / {chargerTotal}
 - Estimated Charge: {projectedCharge}% in {timeAvailable} minutes
 
-Write 1-2 sentences explaining why this is their best option. Be specific about benefits.
-Include numbers. Be encouraging but honest. Do not use markdown or quotes.
+CRITICAL INSTRUCTIONS:
+1. Write EXACTLY 1 to 2 sentences explaining why this is their best option.
+2. Be specific about benefits and include numbers. Be encouraging but honest.
+3. DO NOT include any scratchpad thinking, drafts, bullet points, or internal reasoning.
+4. Output ONLY the final 1-2 sentences. No quotes, no markdown.
 
 Examples:
 "Midtown is your best bet! Only 7 minutes away with just 1 car ahead - you'll hit 85% in your timeframe."

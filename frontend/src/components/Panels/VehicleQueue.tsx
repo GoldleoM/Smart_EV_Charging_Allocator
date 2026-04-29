@@ -54,7 +54,7 @@ export function VehicleQueue() {
           return (
             <div key={v.id} className={clsx("p-3 rounded-lg border", statusBg, "transition-all")}>
               <div className="flex justify-between items-center mb-2">
-                <div className="font-mono text-sm text-white/80">{v.id.toUpperCase()}</div>
+                <div className="font-mono text-sm text-white/80">{v.id?.toUpperCase() || 'UNKNOWN'}</div>
                 <div className={clsx("text-xs font-bold uppercase", statusColor)}>
                   {v.status}
                 </div>

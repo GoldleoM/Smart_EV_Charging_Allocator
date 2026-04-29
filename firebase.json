@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "consumer-app/dist",
+    "public": "ELECTRA/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
